@@ -22,28 +22,43 @@
   <main>
     <!-- LOGIN -->
     <section id="loginView" class="view login-view">
-      <div class="login-card">
+      <div class="login-header">
         <h1>Task-Hub IAP</h1>
         <p class="subtitle">Departamento de Comunicação · IAP Regional SP</p>
-
-        <form id="loginForm" autocomplete="off">
-          <label>
-            E-mail (administrador)
-            <input type="email" id="email" placeholder="admin@iap-sp.com.br" required />
-          </label>
-          <label>
-            Senha
-            <input type="password" id="senha" placeholder="••••••••" required />
-          </label>
-          <button type="submit" class="btn-primary">Entrar como admin</button>
-        </form>
-
-        <div class="divider"><span>ou</span></div>
-
-        <button id="guestBtn" class="btn-secondary">Entrar como visitante</button>
-
-        <p id="loginError" class="error" hidden></p>
       </div>
+
+      <div class="login-grid">
+        <div class="login-card">
+          <div class="card-icon">A</div>
+          <h2>Administrador</h2>
+          <p class="card-desc">Acesso ao painel de gestão de usuários e tarefas.</p>
+          <form id="loginForm" autocomplete="off">
+            <label>
+              E-mail
+              <input type="email" id="email" placeholder="admin@iap-sp.com.br" required />
+            </label>
+            <label>
+              Senha
+              <input type="password" id="senha" placeholder="••••••••" required />
+            </label>
+            <button type="submit" class="btn-primary">Entrar como admin</button>
+          </form>
+        </div>
+
+        <div class="login-card">
+          <div class="card-icon">V</div>
+          <h2>Visitante</h2>
+          <p class="card-desc">Acompanhe o quadro de tarefas da equipe sem precisar de credenciais.</p>
+          <ul class="card-list">
+            <li>Visualize o Kanban completo</li>
+            <li>Sem necessidade de cadastro</li>
+            <li>Acesso somente leitura</li>
+          </ul>
+          <button id="guestBtn" class="btn-primary">Entrar como visitante</button>
+        </div>
+      </div>
+
+      <p id="loginError" class="error" hidden></p>
     </section>
 
     <!-- VIEW PADRÃO PARA VISITANTES / COLABORADORES -->

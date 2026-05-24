@@ -40,28 +40,66 @@ main { padding: 24px; max-width: 1200px; margin: 0 auto; }
 
 /* LOGIN */
 .login-view {
-  min-height: calc(100vh - 60px);
-  display: grid;
-  place-items: center;
-  padding: 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 32px;
 }
+.login-header { text-align: center; }
+.login-header h1 { margin: 0 0 6px; font-size: 2rem; letter-spacing: -0.02em; }
+.login-header .subtitle { margin: 0; color: var(--text-muted); font-size: 1rem; }
+
+.login-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+  max-width: 860px;
+}
+@media (max-width: 720px) {
+  .login-grid { grid-template-columns: 1fr; }
+}
+
 .login-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 32px;
-  width: 100%;
-  max-width: 400px;
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
-.login-card h1 { margin: 0 0 4px; font-size: 1.6rem; }
-.login-card .subtitle {
-  margin: 0 0 24px;
+.login-card .card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), #7b6fff);
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 16px;
+}
+.login-card h2 { margin: 0 0 6px; font-size: 1.25rem; }
+.login-card .card-desc {
+  margin: 0 0 20px;
   color: var(--text-muted);
   font-size: 0.9rem;
+  line-height: 1.45;
 }
-.login-card form { display: flex; flex-direction: column; gap: 12px; }
-.login-card label { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
+.login-card .card-list {
+  margin: 0 0 20px;
+  padding-left: 18px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.login-card form { display: flex; flex-direction: column; gap: 14px; margin-top: auto; }
+.login-card label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; color: var(--text-muted); }
 .login-card input {
   padding: 10px 12px;
   background: var(--surface-2);
@@ -71,18 +109,10 @@ main { padding: 24px; max-width: 1200px; margin: 0 auto; }
   font-size: 0.95rem;
 }
 .login-card input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+.login-card .btn-primary { margin-top: 4px; }
 
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 20px 0;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-.divider::before, .divider::after {
-  content: ""; flex: 1; height: 1px; background: var(--border);
-}
+/* segundo cartão: empurra o botão para a base alinhando aos cards */
+.login-card #guestBtn { margin-top: auto; }
 
 /* BUTTONS */
 .btn-primary, .btn-secondary, .btn-ghost, .nav-btn {

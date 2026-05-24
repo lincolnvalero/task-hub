@@ -25,14 +25,13 @@ function clearSession() {
 }
 
 async function api(path, options = {}) {
-  const res = await fetch(API + path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
-      ...(options.headers || {}),
-    },
-  })
+  const headers = {
+    ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
+    ...(options.headers || {}),
+  }
+  if (options.body) headers['Content-Type'] = 'application/json'
+
+  const res = await fetch(API + path, { ...options, headers })
   const text = await res.text()
   const body = text ? JSON.parse(text) : null
   if (!res.ok) throw new Error(body?.error?.message || body?.error || body?.message || res.statusText)
