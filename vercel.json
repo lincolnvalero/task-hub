@@ -10,7 +10,7 @@
     { "src": "/app.js", "dest": "/public/app.js" },
     { "src": "/favicon.ico", "status": 204 },
     {
-      "src": "/(auth|users|tasks|demands|job-applications|dashboard|docs|health)(.*)",
+      "src": "/(auth|users|teams|tasks|demands|job-applications|dashboard|docs|health)(.*)",
       "dest": "/api/index.ts"
     },
     { "src": "/(.*)", "dest": "/public/index.html" }

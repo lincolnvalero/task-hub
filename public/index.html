@@ -11,6 +11,7 @@
     <div class="brand">Task-Hub IAP</div>
     <nav id="adminNav" hidden>
       <button data-view="adminTasks" class="nav-btn active">Tarefas</button>
+      <button data-view="adminTeams" class="nav-btn">Equipes</button>
       <button data-view="adminUsers" class="nav-btn">Usuários</button>
     </nav>
     <div class="user-info">
@@ -31,7 +32,7 @@
         <div class="login-card">
           <div class="card-icon">A</div>
           <h2>Administrador</h2>
-          <p class="card-desc">Acesso ao painel de gestão de usuários e tarefas.</p>
+          <p class="card-desc">Acesso ao painel de gestão de usuários, equipes e tarefas.</p>
           <form id="loginForm" autocomplete="off">
             <label>
               E-mail
@@ -61,7 +62,7 @@
       <p id="loginError" class="error" hidden></p>
     </section>
 
-    <!-- VIEW PADRÃO PARA VISITANTES / COLABORADORES -->
+    <!-- VISITANTE / COLABORADOR -->
     <section id="userView" class="view" hidden>
       <h2>Painel de Tarefas</h2>
       <p class="muted">Acompanhe o quadro Kanban da equipe.</p>
@@ -70,8 +71,77 @@
 
     <!-- ADMIN: TAREFAS -->
     <section id="adminTasksView" class="view" hidden>
-      <h2>Tarefas — Visão Administrativa</h2>
+      <div class="row-between">
+        <h2>Tarefas — Visão Administrativa</h2>
+        <button id="newTaskBtn" class="btn-primary">+ Nova tarefa</button>
+      </div>
+      <p class="muted">Clique em uma tarefa para alterar o status.</p>
       <div id="adminKanban" class="kanban"></div>
+
+      <dialog id="taskDialog">
+        <form id="taskForm" method="dialog">
+          <h3>Nova tarefa</h3>
+          <label>Título <input type="text" id="tTitulo" required minlength="3" /></label>
+          <label>Descrição <textarea id="tDescricao" rows="3"></textarea></label>
+          <div class="grid-2">
+            <label>Prioridade
+              <select id="tPrioridade">
+                <option value="BAIXA">Baixa</option>
+                <option value="MEDIA" selected>Média</option>
+                <option value="ALTA">Alta</option>
+                <option value="URGENTE">Urgente</option>
+              </select>
+            </label>
+            <label>Prazo
+              <input type="date" id="tPrazo" />
+            </label>
+          </div>
+          <label>Equipe
+            <select id="tTeam" required></select>
+          </label>
+          <label>Responsáveis
+            <select id="tUsers" multiple size="4"></select>
+            <span class="hint">Segure Ctrl/Cmd para selecionar mais de um.</span>
+          </label>
+          <div class="dialog-actions">
+            <button type="button" id="cancelTaskBtn" class="btn-ghost">Cancelar</button>
+            <button type="submit" class="btn-primary">Criar tarefa</button>
+          </div>
+        </form>
+      </dialog>
+
+      <dialog id="statusDialog">
+        <form method="dialog">
+          <h3 id="statusTaskTitle">Alterar status</h3>
+          <div class="status-options" id="statusOptions"></div>
+          <div class="dialog-actions">
+            <button type="button" class="btn-danger" id="deleteTaskBtn">Excluir tarefa</button>
+            <button type="button" class="btn-ghost" id="cancelStatusBtn">Fechar</button>
+          </div>
+        </form>
+      </dialog>
+
+      <p id="taskFormError" class="error" hidden></p>
+    </section>
+
+    <!-- ADMIN: EQUIPES -->
+    <section id="adminTeamsView" class="view" hidden>
+      <div class="row-between">
+        <h2>Equipes</h2>
+        <button id="newTeamBtn" class="btn-primary">+ Nova equipe</button>
+      </div>
+      <div id="teamList" class="card-list-wrap"></div>
+
+      <dialog id="teamDialog">
+        <form id="teamForm" method="dialog">
+          <h3>Nova equipe</h3>
+          <label>Nome <input type="text" id="teamNome" required minlength="2" /></label>
+          <div class="dialog-actions">
+            <button type="button" id="cancelTeamBtn" class="btn-ghost">Cancelar</button>
+            <button type="submit" class="btn-primary">Criar</button>
+          </div>
+        </form>
+      </dialog>
     </section>
 
     <!-- ADMIN: USUÁRIOS -->
@@ -81,10 +151,10 @@
         <button id="newUserBtn" class="btn-primary">+ Novo usuário</button>
       </div>
 
-      <div id="userListWrap" class="card">
+      <div class="card">
         <table class="data-table">
           <thead>
-            <tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Role</th><th></th></tr>
+            <tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Perfil</th><th></th></tr>
           </thead>
           <tbody id="userList"></tbody>
         </table>
