@@ -1,0 +1,257 @@
+generator client {
+  provider        = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// USUÁRIOS E TIMES
+// ============================================================
+
+model User {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String   @unique
+  telefone  String?
+  igreja    String?
+  cargo     String?
+  role      UserRole @default(COLLABORATOR)
+
+  // LGPD — rastreabilidade de consentimento
+  consentimento_lgpd    Boolean   @default(false)
+  data_consentimento    DateTime?
+  ip_consentimento      String?
+
+  // Auditoria
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime? // soft delete — direito ao esquecimento
+
+  // Relações
+  teams        TeamCollaborator[]
+  comments     TaskComment[]
+  assignments  TaskAssignment[]
+
+  @@index([email])
+  @@index([deleted_at])
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  COLLABORATOR
+}
+
+model Team {
+  id   String @id @default(cuid())
+  nome String @unique
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  collaborators TeamCollaborator[]
+  assignments   TaskAssignment[]
+
+  @@map("teams")
+}
+
+model TeamCollaborator {
+  id      String @id @default(cuid())
+  team    Team   @relation(fields: [team_id], references: [id])
+  team_id String
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String
+
+  joined_at DateTime @default(now())
+
+  @@unique([team_id, user_id])
+  @@index([team_id])
+  @@index([user_id])
+  @@map("team_collaborators")
+}
+
+// ============================================================
+// TAREFAS
+// ============================================================
+
+model Task {
+  id          String       @id @default(cuid())
+  titulo      String
+  descricao   String?
+  status      TaskStatus   @default(BACKLOG)
+  prioridade  TaskPriority @default(MEDIA)
+  tipo_tarefa String?
+  solicitante String?
+
+  data_inicio_planejado DateTime?
+  data_fim_planejado    DateTime?
+  data_conclusao_efetiva DateTime?
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  comments    TaskComment[]
+  assignments TaskAssignment[]
+
+  @@index([status])
+  @@index([data_fim_planejado])
+  @@index([deleted_at])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  BACKLOG
+  A_FAZER
+  EM_ANDAMENTO
+  REVISAO
+  CONCLUIDO
+}
+
+enum TaskPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+model TaskAssignment {
+  id      String  @id @default(cuid())
+  task    Task    @relation(fields: [task_id], references: [id])
+  task_id String
+  team    Team    @relation(fields: [team_id], references: [id])
+  team_id String
+  user    User    @relation(fields: [user_id], references: [id])
+  user_id String
+
+  assigned_at DateTime @default(now())
+
+  @@unique([task_id, user_id])
+  @@index([task_id])
+  @@index([team_id])
+  @@index([user_id])
+  @@map("task_assignments")
+}
+
+model TaskComment {
+  id      String @id @default(cuid())
+  task    Task   @relation(fields: [task_id], references: [id])
+  task_id String
+  user    User   @relation(fields: [user_id], references: [id])
+  user_id String
+  texto   String
+
+  created_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  @@index([task_id])
+  @@map("task_comments")
+}
+
+// ============================================================
+// MAPEAMENTO E ESTRATÉGIA
+// ============================================================
+
+model DepartmentMapping {
+  id                   String  @id @default(cuid())
+  igreja               String  @unique
+  status_equipamentos  String?
+  quantidade_voluntarios Int?
+  maturidade_digital   String?
+  observacoes          String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("department_mappings")
+}
+
+model CommunicationStrategy {
+  id          String   @id @default(cuid())
+  titulo      String
+  descricao   String?
+  data_inicio DateTime?
+  data_fim    DateTime?
+  // Array de ações como JSON: [{titulo, responsavel, prazo}]
+  acoes_integradas Json?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([data_inicio, data_fim])
+  @@map("communication_strategies")
+}
+
+// ============================================================
+// DEMANDAS EXTERNAS — Rotas públicas
+// ============================================================
+
+model ExternalDemand {
+  id             String               @id @default(cuid())
+  nome_lider     String
+  tipo_demanda   ExternalDemandType
+  descricao      String
+  prazo_desejado DateTime?
+  status_aprovacao ApprovalStatus    @default(PENDENTE)
+
+  // LGPD
+  consentimento_lgpd Boolean  @default(false)
+  ip_origem          String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([status_aprovacao])
+  @@index([tipo_demanda])
+  @@map("external_demands")
+}
+
+enum ExternalDemandType {
+  POST
+  REEL
+  STORY
+  SITE
+  EMAIL
+  BANNER
+  VIDEO
+  OUTRO
+}
+
+// ============================================================
+// BANCO DE TALENTOS — "Trabalhe Conosco"
+// ============================================================
+
+model JobApplication {
+  id              String         @id @default(cuid())
+  nome            String
+  email           String
+  telefone        String?
+  formacao        String?
+  video_url       String?
+  mensagem        String?
+  status_aprovacao ApprovalStatus @default(PENDENTE)
+
+  // LGPD — obrigatório para coleta de dados pessoais
+  consentimento_lgpd Boolean  @default(false)
+  ip_origem          String?
+
+  reviewed_at DateTime?
+  reviewed_by String?   // user_id do admin que revisou
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([status_aprovacao])
+  @@index([email])
+  @@map("job_applications")
+}
+
+enum ApprovalStatus {
+  PENDENTE
+  APROVADO
+  RECUSADO
+}
