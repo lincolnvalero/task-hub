@@ -13,7 +13,7 @@ import { tasksRoutes } from './infra/http/controllers/tasks.controller'
 import { externalRoutes } from './infra/http/controllers/external.controller'
 import { dashboardRoutes } from './infra/http/controllers/dashboard.controller'
 
-export const app = Fastify({ logger: true })
+export const app = Fastify({ logger: true, pluginTimeout: 30000 })
 
 export async function setupApp() {
   await app.register(helmet, { global: true })
