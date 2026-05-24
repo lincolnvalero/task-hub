@@ -17,7 +17,8 @@ model User {
   telefone  String?
   igreja    String?
   cargo     String?
-  role      UserRole @default(COLLABORATOR)
+  role       UserRole @default(COLLABORATOR)
+  senha_hash String?
 
   // LGPD — rastreabilidade de consentimento
   consentimento_lgpd    Boolean   @default(false)
