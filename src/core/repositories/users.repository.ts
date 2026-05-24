@@ -16,4 +16,11 @@ export interface IUsersRepository {
   findById(id: string): Promise<User | null>
   findByEmail(email: string): Promise<User | null>
   softDelete(id: string): Promise<void>
+  findSenhaHash(id: string): Promise<string | null>
+  updateSenhaHash(id: string, hash: string): Promise<void>
+  list(): Promise<User[]>
+  update(
+    id: string,
+    patch: Partial<Pick<User, 'nome' | 'email' | 'telefone' | 'igreja' | 'cargo' | 'role'>>
+  ): Promise<User>
 }

@@ -1,79 +1,64 @@
 import type { FastifyInstance } from 'fastify'
-import { prisma } from '../../database/prisma'
+import { supabase } from '../../database/supabase'
 import { requireAdmin } from '../middlewares/auth.middleware'
 import { PrismaTasksRepository } from '../../database/repositories/prisma-tasks.repository'
-
-interface EfficiencyRow { on_time: bigint; late: bigint }
 
 export async function dashboardRoutes(app: FastifyInstance) {
   app.get('/dashboard/metrics', { preHandler: requireAdmin }, async (_request, reply) => {
     const tasksRepo = new PrismaTasksRepository()
 
     const [
-      totalTasks,
+      totalRes,
       overdueCount,
-      tasksByStatus,
+      tasksByStatusRes,
       tasksByTeam,
-      demandsByType,
-      pendingApplications,
-      // Raw SQL para comparar duas colunas: conclusao_efetiva vs fim_planejado
-      efficiencyRows,
+      demandsByTypeRes,
+      pendingAppsRes,
     ] = await Promise.all([
-      prisma.task.count({ where: { deleted_at: null } }),
-
+      supabase.from('tasks').select('id', { count: 'exact', head: true }).is('deleted_at', null),
       tasksRepo.countOverdue(),
-
-      prisma.task.groupBy({
-        by: ['status'],
-        where: { deleted_at: null },
-        _count: { id: true },
-      }),
-
+      supabase.from('tasks').select('status').is('deleted_at', null),
       tasksRepo.countByTeam(),
-
-      prisma.externalDemand.groupBy({
-        by: ['tipo_demanda'],
-        _count: { id: true },
-      }),
-
-      prisma.jobApplication.count({ where: { status_aprovacao: 'PENDENTE' } }),
-
-      prisma.$queryRaw<EfficiencyRow[]>`
-        SELECT
-          COUNT(*) FILTER (WHERE data_conclusao_efetiva <= data_fim_planejado) AS on_time,
-          COUNT(*) FILTER (WHERE data_conclusao_efetiva >  data_fim_planejado) AS late
-        FROM tasks
-        WHERE deleted_at IS NULL
-          AND status = 'CONCLUIDO'
-          AND data_fim_planejado IS NOT NULL
-          AND data_conclusao_efetiva IS NOT NULL
-      `,
+      supabase.from('external_demands').select('tipo_demanda'),
+      supabase
+        .from('job_applications')
+        .select('id', { count: 'exact', head: true })
+        .eq('status_aprovacao', 'PENDENTE'),
     ])
 
-    const row            = efficiencyRows[0]
-    const onTime         = Number(row?.on_time ?? 0)
-    const late           = Number(row?.late ?? 0)
-    const totalConcluidas = onTime + late
-    const eficienciaPrazo = totalConcluidas > 0
-      ? Math.round((onTime / totalConcluidas) * 100)
-      : null
+    if (totalRes.error)         return reply.status(500).send({ error: totalRes.error.message })
+    if (tasksByStatusRes.error) return reply.status(500).send({ error: tasksByStatusRes.error.message })
+    if (demandsByTypeRes.error) return reply.status(500).send({ error: demandsByTypeRes.error.message })
+    if (pendingAppsRes.error)   return reply.status(500).send({ error: pendingAppsRes.error.message })
+
+    const statusCount = new Map<string, number>()
+    for (const row of tasksByStatusRes.data ?? []) {
+      statusCount.set(row.status, (statusCount.get(row.status) ?? 0) + 1)
+    }
+
+    const demandCount = new Map<string, number>()
+    for (const row of demandsByTypeRes.data ?? []) {
+      demandCount.set(row.tipo_demanda, (demandCount.get(row.tipo_demanda) ?? 0) + 1)
+    }
+
+    const efficiency = await supabase.rpc('calc_efficiency').single()
+    let eficienciaPrazo: number | null = null
+    if (!efficiency.error && efficiency.data) {
+      const row = efficiency.data as { on_time: number; late: number }
+      const total = (row.on_time ?? 0) + (row.late ?? 0)
+      eficienciaPrazo = total > 0 ? Math.round((row.on_time / total) * 100) : null
+    }
 
     return reply.send({
       resumo: {
-        total_tarefas:          totalTasks,
+        total_tarefas:          totalRes.count ?? 0,
         tarefas_atrasadas:      overdueCount,
-        candidaturas_pendentes: pendingApplications,
+        candidaturas_pendentes: pendingAppsRes.count ?? 0,
         eficiencia_prazo_pct:   eficienciaPrazo,
       },
-      tarefas_por_status: tasksByStatus.map((s: { status: string; _count: { id: number } }) => ({
-        status: s.status,
-        total:  s._count.id,
-      })),
+      tarefas_por_status: Array.from(statusCount.entries()).map(([status, total]) => ({ status, total })),
       tarefas_por_equipe: tasksByTeam,
-      demandas_por_tipo: demandsByType.map((d: { tipo_demanda: string | null; _count: { id: number } }) => ({
-        tipo:  d.tipo_demanda,
-        total: d._count.id,
-      })),
+      demandas_por_tipo:  Array.from(demandCount.entries()).map(([tipo, total]) => ({ tipo, total })),
     })
   })
 }

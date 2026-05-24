@@ -8,6 +8,7 @@ import swagger from '@fastify/swagger'
 import swaggerUi from '@fastify/swagger-ui'
 
 import { authRoutes } from './infra/http/controllers/auth.controller'
+import { usersRoutes } from './infra/http/controllers/users.controller'
 import { tasksRoutes } from './infra/http/controllers/tasks.controller'
 import { externalRoutes } from './infra/http/controllers/external.controller'
 import { dashboardRoutes } from './infra/http/controllers/dashboard.controller'
@@ -45,6 +46,7 @@ export async function setupApp() {
   await app.register(swaggerUi, { routePrefix: '/docs' })
 
   await app.register(authRoutes)
+  await app.register(usersRoutes)
   await app.register(tasksRoutes)
   await app.register(externalRoutes)
   await app.register(dashboardRoutes)

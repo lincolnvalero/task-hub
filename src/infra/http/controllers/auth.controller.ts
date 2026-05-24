@@ -39,6 +39,15 @@ export async function authRoutes(app: FastifyInstance) {
     })
   })
 
+  // POST /auth/guest — sessão de visitante (sem credenciais)
+  app.post('/auth/guest', async (_request, reply) => {
+    const token = app.jwt.sign({ sub: 'guest', role: 'GUEST' })
+    return reply.send({
+      token,
+      user: { id: 'guest', nome: 'Visitante', email: '', role: 'GUEST' },
+    })
+  })
+
   // POST /auth/set-password — troca ou define senha (requer login)
   app.post('/auth/set-password', { preHandler: requireAuth }, async (request, reply) => {
     const body = setPasswordSchema.safeParse(request.body)

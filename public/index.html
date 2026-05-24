@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Task-Hub IAP</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar" hidden>
+    <div class="brand">Task-Hub IAP</div>
+    <nav id="adminNav" hidden>
+      <button data-view="adminTasks" class="nav-btn active">Tarefas</button>
+      <button data-view="adminUsers" class="nav-btn">Usuários</button>
+    </nav>
+    <div class="user-info">
+      <span id="userBadge"></span>
+      <button id="logoutBtn" class="btn-ghost">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LOGIN -->
+    <section id="loginView" class="view login-view">
+      <div class="login-card">
+        <h1>Task-Hub IAP</h1>
+        <p class="subtitle">Departamento de Comunicação · IAP Regional SP</p>
+
+        <form id="loginForm" autocomplete="off">
+          <label>
+            E-mail (administrador)
+            <input type="email" id="email" placeholder="admin@iap-sp.com.br" required />
+          </label>
+          <label>
+            Senha
+            <input type="password" id="senha" placeholder="••••••••" required />
+          </label>
+          <button type="submit" class="btn-primary">Entrar como admin</button>
+        </form>
+
+        <div class="divider"><span>ou</span></div>
+
+        <button id="guestBtn" class="btn-secondary">Entrar como visitante</button>
+
+        <p id="loginError" class="error" hidden></p>
+      </div>
+    </section>
+
+    <!-- VIEW PADRÃO PARA VISITANTES / COLABORADORES -->
+    <section id="userView" class="view" hidden>
+      <h2>Painel de Tarefas</h2>
+      <p class="muted">Acompanhe o quadro Kanban da equipe.</p>
+      <div id="kanbanBoard" class="kanban"></div>
+    </section>
+
+    <!-- ADMIN: TAREFAS -->
+    <section id="adminTasksView" class="view" hidden>
+      <h2>Tarefas — Visão Administrativa</h2>
+      <div id="adminKanban" class="kanban"></div>
+    </section>
+
+    <!-- ADMIN: USUÁRIOS -->
+    <section id="adminUsersView" class="view" hidden>
+      <div class="row-between">
+        <h2>Gestão de Usuários</h2>
+        <button id="newUserBtn" class="btn-primary">+ Novo usuário</button>
+      </div>
+
+      <div id="userListWrap" class="card">
+        <table class="data-table">
+          <thead>
+            <tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Role</th><th></th></tr>
+          </thead>
+          <tbody id="userList"></tbody>
+        </table>
+      </div>
+
+      <dialog id="userDialog">
+        <form id="userForm" method="dialog">
+          <h3 id="userDialogTitle">Novo usuário</h3>
+          <input type="hidden" id="userId" />
+          <label>Nome <input type="text" id="uNome" required minlength="2" /></label>
+          <label>E-mail <input type="email" id="uEmail" required /></label>
+          <label>Telefone <input type="text" id="uTelefone" /></label>
+          <label>Cargo <input type="text" id="uCargo" /></label>
+          <label>Igreja <input type="text" id="uIgreja" /></label>
+          <label>Perfil
+            <select id="uRole">
+              <option value="COLLABORATOR">Colaborador</option>
+              <option value="MANAGER">Gestor</option>
+              <option value="ADMIN">Administrador</option>
+            </select>
+          </label>
+          <label id="uSenhaLabel">Senha inicial <input type="password" id="uSenha" minlength="6" /></label>
+          <div class="dialog-actions">
+            <button type="button" id="cancelUserBtn" class="btn-ghost">Cancelar</button>
+            <button type="submit" class="btn-primary">Salvar</button>
+          </div>
+        </form>
+      </dialog>
+
+      <p id="userFormError" class="error" hidden></p>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

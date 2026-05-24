@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { prisma } from '../../database/prisma'
+import { supabase } from '../../database/supabase'
 import { requireAdmin } from '../middlewares/auth.middleware'
 import { PrismaUsersRepository } from '../../database/repositories/prisma-users.repository'
 
@@ -38,16 +38,19 @@ export async function externalRoutes(app: FastifyInstance) {
     const body = externalDemandSchema.safeParse(request.body)
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
 
-    const demand = await prisma.externalDemand.create({
-      data: {
+    const { data: demand, error } = await supabase
+      .from('external_demands')
+      .insert({
         nome_lider:          body.data.nome_lider,
         tipo_demanda:        body.data.tipo_demanda,
         descricao:           body.data.descricao,
-        prazo_desejado:      body.data.prazo_desejado,
+        prazo_desejado:      body.data.prazo_desejado?.toISOString(),
         consentimento_lgpd:  true,
         ip_origem:           request.ip,
-      },
-    })
+      })
+      .select('id')
+      .single()
+    if (error) return reply.status(500).send({ error: error.message })
 
     return reply.status(201).send({
       message: 'Solicitação enviada com sucesso. Nossa equipe entrará em contato.',
@@ -60,8 +63,9 @@ export async function externalRoutes(app: FastifyInstance) {
     const body = jobApplicationSchema.safeParse(request.body)
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
 
-    const application = await prisma.jobApplication.create({
-      data: {
+    const { data: application, error } = await supabase
+      .from('job_applications')
+      .insert({
         nome:               body.data.nome,
         email:              body.data.email,
         telefone:           body.data.telefone,
@@ -70,8 +74,10 @@ export async function externalRoutes(app: FastifyInstance) {
         mensagem:           body.data.mensagem,
         consentimento_lgpd: true,
         ip_origem:          request.ip,
-      },
-    })
+      })
+      .select('id')
+      .single()
+    if (error) return reply.status(500).send({ error: error.message })
 
     return reply.status(201).send({
       message: 'Candidatura recebida! Analisaremos seu perfil em breve.',
@@ -89,24 +95,27 @@ export async function externalRoutes(app: FastifyInstance) {
 
       const reviewerId = (request.user as { sub: string }).sub
 
-      const application = await prisma.jobApplication.findUnique({
-        where: { id: request.params.id },
-      })
+      const { data: application, error: findErr } = await supabase
+        .from('job_applications')
+        .select('*')
+        .eq('id', request.params.id)
+        .maybeSingle()
+      if (findErr) return reply.status(500).send({ error: findErr.message })
       if (!application) return reply.status(404).send({ error: 'Candidatura não encontrada.' })
       if (application.status_aprovacao !== 'PENDENTE') {
         return reply.status(422).send({ error: 'Esta candidatura já foi revisada.' })
       }
 
-      await prisma.jobApplication.update({
-        where: { id: request.params.id },
-        data: {
+      const { error: updErr } = await supabase
+        .from('job_applications')
+        .update({
           status_aprovacao: body.data.status,
-          reviewed_at:      new Date(),
+          reviewed_at:      new Date().toISOString(),
           reviewed_by:      reviewerId,
-        },
-      })
+        })
+        .eq('id', request.params.id)
+      if (updErr) return reply.status(500).send({ error: updErr.message })
 
-      // Se aprovado, promove automaticamente para a tabela de usuários
       if (body.data.status === 'APROVADO') {
         const usersRepo = new PrismaUsersRepository()
         const existing  = await usersRepo.findByEmail(application.email)
