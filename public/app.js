@@ -302,9 +302,14 @@ async function loadTeams() {
       return '<div class="team-row">' +
         '<div><strong>' + escapeHtml(t.nome) + '</strong>' +
         '<div class="meta">' + count + ' colaborador' + (count === 1 ? '' : 'es') + '</div></div>' +
+        '<div>' +
+        '<button class="btn-ghost" data-manage-team="' + t.id + '">Gerenciar membros</button>' +
         '<button class="btn-danger" data-delete-team="' + t.id + '">Excluir</button>' +
-        '</div>'
+        '</div></div>'
     }).join('')
+    $$('[data-manage-team]').forEach((b) =>
+      b.addEventListener('click', () => openCollabDialog(b.dataset.manageTeam))
+    )
     $$('[data-delete-team]').forEach((b) =>
       b.addEventListener('click', async () => {
         if (!confirm('Excluir esta equipe?')) return
@@ -322,6 +327,53 @@ $('#newTeamBtn').addEventListener('click', () => {
   $('#teamDialog').showModal()
 })
 $('#cancelTeamBtn').addEventListener('click', () => $('#teamDialog').close())
+
+let currentTeamForCollabs = null
+async function openCollabDialog(teamId) {
+  currentTeamForCollabs = teamId
+  const team = state.teams.find((t) => t.id === teamId)
+  $('#collabTitle').textContent = 'Colaboradores · ' + (team?.nome || '')
+
+  const wrap = $('#collabList')
+  wrap.innerHTML = '<p class="muted">Carregando...</p>'
+  $('#collabDialog').showModal()
+
+  await refreshUsers()
+  const memberIds = new Set((team?.collaborators || []).map((c) => c.user_id))
+
+  wrap.innerHTML = state.users
+    .filter((u) => u.role !== 'GUEST')
+    .map((u) =>
+      '<label>' +
+      '<input type="checkbox" data-user="' + u.id + '" ' + (memberIds.has(u.id) ? 'checked' : '') + ' />' +
+      escapeHtml(u.nome) + ' (' + escapeHtml(u.email) + ')' +
+      '</label>'
+    ).join('')
+
+  $$('input[data-user]', wrap).forEach((cb) => {
+    cb.addEventListener('change', async () => {
+      const userId = cb.dataset.user
+      try {
+        if (cb.checked) {
+          await api('/teams/' + teamId + '/collaborators', {
+            method: 'POST',
+            body: JSON.stringify({ user_id: userId }),
+          })
+        } else {
+          await api('/teams/' + teamId + '/collaborators/' + userId, { method: 'DELETE' })
+        }
+      } catch (err) {
+        alert(err.message)
+        cb.checked = !cb.checked
+      }
+    })
+  })
+}
+$('#closeCollabBtn').addEventListener('click', async () => {
+  $('#collabDialog').close()
+  await refreshTeams()
+  loadTeams()
+})
 $('#teamForm').addEventListener('submit', async (e) => {
   e.preventDefault()
   try {
