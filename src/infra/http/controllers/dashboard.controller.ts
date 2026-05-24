@@ -65,12 +65,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
         candidaturas_pendentes: pendingApplications,
         eficiencia_prazo_pct:   eficienciaPrazo,
       },
-      tarefas_por_status: tasksByStatus.map((s) => ({
+      tarefas_por_status: tasksByStatus.map((s: { status: string; _count: { id: number } }) => ({
         status: s.status,
         total:  s._count.id,
       })),
       tarefas_por_equipe: tasksByTeam,
-      demandas_por_tipo: demandsByType.map((d) => ({
+      demandas_por_tipo: demandsByType.map((d: { tipo_demanda: string | null; _count: { id: number } }) => ({
         tipo:  d.tipo_demanda,
         total: d._count.id,
       })),
