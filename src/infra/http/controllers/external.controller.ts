@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { randomUUID } from 'node:crypto'
 import { supabase } from '../../database/supabase'
 import { requireAdmin } from '../middlewares/auth.middleware'
 import { PrismaUsersRepository } from '../../database/repositories/prisma-users.repository'
@@ -41,6 +42,7 @@ export async function externalRoutes(app: FastifyInstance) {
     const { data: demand, error } = await supabase
       .from('external_demands')
       .insert({
+        id:                  randomUUID(),
         nome_lider:          body.data.nome_lider,
         tipo_demanda:        body.data.tipo_demanda,
         descricao:           body.data.descricao,
@@ -66,6 +68,7 @@ export async function externalRoutes(app: FastifyInstance) {
     const { data: application, error } = await supabase
       .from('job_applications')
       .insert({
+        id:                 randomUUID(),
         nome:               body.data.nome,
         email:              body.data.email,
         telefone:           body.data.telefone,

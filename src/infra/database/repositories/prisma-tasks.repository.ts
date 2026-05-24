@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { supabase } from '../supabase'
 import type {
   ITasksRepository,
@@ -26,6 +27,7 @@ export class PrismaTasksRepository implements ITasksRepository {
     const { data: task, error } = await supabase
       .from('tasks')
       .insert({
+        id:                    randomUUID(),
         titulo:                data.titulo,
         descricao:             data.descricao,
         prioridade:            data.prioridade ?? 'MEDIA',
@@ -40,6 +42,7 @@ export class PrismaTasksRepository implements ITasksRepository {
 
     if (data.user_ids.length > 0) {
       const rows = data.user_ids.map((user_id) => ({
+        id:      randomUUID(),
         task_id: task.id,
         user_id,
         team_id: data.team_ids[0],
@@ -105,6 +108,7 @@ export class PrismaTasksRepository implements ITasksRepository {
 
   async addComment(data: AddCommentDTO): Promise<void> {
     const { error } = await supabase.from('task_comments').insert({
+      id:      randomUUID(),
       task_id: data.task_id,
       user_id: data.user_id,
       texto:   data.texto,

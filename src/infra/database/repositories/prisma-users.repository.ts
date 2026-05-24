@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { supabase } from '../supabase'
 import type { IUsersRepository, CreateUserDTO } from '../../../core/repositories/users.repository'
 import type { User } from '../../../core/entities/user.entity'
@@ -7,6 +8,7 @@ export class PrismaUsersRepository implements IUsersRepository {
     const { data: row, error } = await supabase
       .from('users')
       .insert({
+        id:                 randomUUID(),
         nome:               data.nome,
         email:              data.email,
         telefone:           data.telefone,

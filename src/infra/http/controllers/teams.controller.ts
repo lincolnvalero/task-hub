@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { randomUUID } from 'node:crypto'
 import { supabase } from '../../database/supabase'
 import { requireAuth, requireAdmin } from '../middlewares/auth.middleware'
 
@@ -30,7 +31,7 @@ export async function teamsRoutes(app: FastifyInstance) {
 
     const { data, error } = await supabase
       .from('teams')
-      .insert({ nome: body.data.nome })
+      .insert({ id: randomUUID(), nome: body.data.nome })
       .select('id, nome, created_at')
       .single()
     if (error) return reply.status(500).send({ error: error.message })
@@ -47,7 +48,7 @@ export async function teamsRoutes(app: FastifyInstance) {
 
       const { error } = await supabase
         .from('team_collaborators')
-        .insert({ team_id: request.params.id, user_id: body.data.user_id })
+        .insert({ id: randomUUID(), team_id: request.params.id, user_id: body.data.user_id })
       if (error) return reply.status(500).send({ error: error.message })
       return reply.status(204).send()
     }

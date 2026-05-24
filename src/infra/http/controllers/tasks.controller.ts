@@ -15,8 +15,8 @@ const createTaskSchema = z.object({
   solicitante:           z.string().max(100).optional(),
   data_inicio_planejado: z.coerce.date().optional(),
   data_fim_planejado:    z.coerce.date().optional(),
-  team_ids:              z.array(z.string().cuid()).min(1),
-  user_ids:              z.array(z.string().cuid()).default([]),
+  team_ids:              z.array(z.string().min(1)).min(1),
+  user_ids:              z.array(z.string().min(1)).default([]),
 })
 
 const updateStatusSchema = z.object({
