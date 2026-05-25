@@ -85,6 +85,29 @@ export async function tasksRoutes(app: FastifyInstance) {
     return reply.status(204).send()
   })
 
+  // PATCH /tasks/:id — atualizar campos da tarefa (título, descrição, prioridade, datas, tipo, solicitante)
+  app.patch<{ Params: { id: string } }>('/tasks/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const updateFieldsSchema = z.object({
+      titulo:                z.string().min(3).max(200).optional(),
+      descricao:             z.string().max(2000).optional(),
+      prioridade:            z.enum(['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']).optional(),
+      tipo_tarefa:           z.string().max(100).optional(),
+      solicitante:           z.string().max(100).optional(),
+      data_inicio_planejado: z.coerce.date().optional(),
+      data_fim_planejado:    z.coerce.date().optional(),
+    })
+
+    const body = updateFieldsSchema.safeParse(request.body)
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
+
+    const tasksRepo = new PrismaTasksRepository()
+    const task = await tasksRepo.findById(request.params.id)
+    if (!task) return reply.status(404).send({ error: 'Tarefa não encontrada.' })
+
+    const updated = await tasksRepo.update(request.params.id, body.data)
+    return reply.send(updated)
+  })
+
   // POST /tasks/:id/comments — adicionar comentário
   app.post<{ Params: { id: string } }>('/tasks/:id/comments', { preHandler: requireAuth }, async (request, reply) => {
     const body = addCommentSchema.safeParse(request.body)

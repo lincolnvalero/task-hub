@@ -4,201 +4,384 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Task-Hub IAP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <header class="topbar" hidden>
-    <div class="brand">Task-Hub IAP</div>
-    <nav id="adminNav" hidden>
-      <button data-view="adminTasks" class="nav-btn active">Tarefas</button>
-      <button data-view="adminTeams" class="nav-btn">Equipes</button>
-      <button data-view="adminUsers" class="nav-btn">Usuários</button>
-    </nav>
-    <div class="user-info">
-      <span id="userBadge"></span>
-      <button id="logoutBtn" class="btn-ghost">Sair</button>
+
+  <!-- LOGIN -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-header">
+      <div class="login-logo">T</div>
+      <h1>Task-Hub IAP</h1>
+      <p class="login-subtitle">Departamento de Comunicação · IAP Regional SP</p>
     </div>
-  </header>
-
-  <main>
-    <!-- LOGIN -->
-    <section id="loginView" class="view login-view">
-      <div class="login-header">
-        <h1>Task-Hub IAP</h1>
-        <p class="subtitle">Departamento de Comunicação · IAP Regional SP</p>
+    <div class="login-cards">
+      <div class="login-card">
+        <div class="lcard-icon admin-icon">A</div>
+        <h2>Administrador</h2>
+        <p class="lcard-desc">Acesso completo ao painel de gestão, equipes e usuários.</p>
+        <form id="loginForm" autocomplete="off">
+          <label>E-mail<input type="email" id="email" placeholder="admin@iap-sp.com.br" required /></label>
+          <label>Senha<input type="password" id="senha" placeholder="••••••••" required /></label>
+          <button type="submit" class="btn-primary">Entrar</button>
+        </form>
       </div>
+      <div class="login-card">
+        <div class="lcard-icon guest-icon">V</div>
+        <h2>Visitante</h2>
+        <p class="lcard-desc">Acompanhe o quadro de tarefas sem precisar de credenciais.</p>
+        <ul class="feature-list">
+          <li>Visualize o Kanban completo</li>
+          <li>Sem necessidade de cadastro</li>
+          <li>Acesso somente leitura</li>
+        </ul>
+        <button id="guestBtn" class="btn-secondary">Entrar como visitante</button>
+      </div>
+    </div>
+    <p id="loginError" class="login-error" hidden></p>
+  </div>
 
-      <div class="login-grid">
-        <div class="login-card">
-          <div class="card-icon">A</div>
-          <h2>Administrador</h2>
-          <p class="card-desc">Acesso ao painel de gestão de usuários, equipes e tarefas.</p>
-          <form id="loginForm" autocomplete="off">
-            <label>
-              E-mail
-              <input type="email" id="email" placeholder="admin@iap-sp.com.br" required />
-            </label>
-            <label>
-              Senha
-              <input type="password" id="senha" placeholder="••••••••" required />
-            </label>
-            <button type="submit" class="btn-primary">Entrar como admin</button>
-          </form>
+  <!-- APP SHELL -->
+  <div id="appShell" class="app-shell" hidden>
+
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">T</span>
+        <span class="brand-name">Task-Hub</span>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item" data-view="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="tasks">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          <span>Tarefas</span>
+        </button>
+        <button class="nav-item admin-only" data-view="teams">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          <span>Equipes</span>
+        </button>
+        <button class="nav-item admin-only" data-view="users">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Usuários</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-pill">
+          <div class="user-avatar-sm" id="sidebarAvatar"></div>
+          <div class="user-meta">
+            <div id="sidebarName" class="user-display-name"></div>
+            <div id="sidebarRole" class="user-role-label"></div>
+          </div>
+          <button id="logoutBtn" class="icon-btn" title="Sair">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
+      </div>
+    </aside>
 
-        <div class="login-card">
-          <div class="card-icon">V</div>
-          <h2>Visitante</h2>
-          <p class="card-desc">Acompanhe o quadro de tarefas da equipe sem precisar de credenciais.</p>
-          <ul class="card-list">
-            <li>Visualize o Kanban completo</li>
-            <li>Sem necessidade de cadastro</li>
-            <li>Acesso somente leitura</li>
-          </ul>
-          <button id="guestBtn" class="btn-primary">Entrar como visitante</button>
+    <div class="main-wrap">
+      <header class="top-header">
+        <button id="sidebarToggle" class="icon-btn hamburger-btn" title="Menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="search-container">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="search" id="globalSearch" class="search-input" placeholder="Buscar tarefas…" autocomplete="off" />
+          <div id="searchDropdown" class="search-dropdown" hidden></div>
         </div>
-      </div>
+        <div class="header-actions">
+          <button id="newTaskBtn" class="btn-primary admin-only">+ Nova tarefa</button>
+        </div>
+      </header>
 
-      <p id="loginError" class="error" hidden></p>
-    </section>
+      <main id="viewContainer" class="view-container">
 
-    <!-- VISITANTE / COLABORADOR -->
-    <section id="userView" class="view" hidden>
-      <h2>Painel de Tarefas</h2>
-      <p class="muted">Acompanhe o quadro Kanban da equipe.</p>
-      <div id="kanbanBoard" class="kanban"></div>
-    </section>
+        <!-- DASHBOARD -->
+        <section id="dashboardView" class="view" hidden>
+          <div class="section-header">
+            <h2>Dashboard</h2>
+            <button id="refreshDashBtn" class="btn-ghost btn-sm">↺ Atualizar</button>
+          </div>
+          <div id="kpiGrid" class="kpi-grid"></div>
+          <div class="charts-grid">
+            <div class="chart-card">
+              <h3 class="chart-title">Status das tarefas</h3>
+              <div class="chart-wrap donut-wrap"><canvas id="chartStatus"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h3 class="chart-title">Tarefas por equipe</h3>
+              <div class="chart-wrap"><canvas id="chartTeams"></canvas></div>
+            </div>
+          </div>
+          <div class="upcoming-card">
+            <h3 class="chart-title">Próximas a vencer</h3>
+            <div id="upcomingList" class="upcoming-list"></div>
+          </div>
+        </section>
 
-    <!-- ADMIN: TAREFAS -->
-    <section id="adminTasksView" class="view" hidden>
-      <div class="row-between">
-        <h2>Tarefas — Visão Administrativa</h2>
-        <button id="newTaskBtn" class="btn-primary">+ Nova tarefa</button>
-      </div>
-      <p class="muted">Clique em uma tarefa para alterar o status.</p>
-      <div id="adminKanban" class="kanban"></div>
+        <!-- TASKS -->
+        <section id="tasksView" class="view" hidden>
+          <div class="section-header">
+            <h2>Tarefas</h2>
+            <div class="view-toggle-group">
+              <button id="btnViewKanban" class="view-toggle-btn active" title="Kanban">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="13" rx="1"/><rect x="17" y="3" width="5" height="9" rx="1"/></svg>
+              </button>
+              <button id="btnViewList" class="view-toggle-btn" title="Lista">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
 
-      <dialog id="taskDialog">
-        <form id="taskForm" method="dialog">
-          <h3>Nova tarefa</h3>
-          <label>Título <input type="text" id="tTitulo" required minlength="3" /></label>
-          <label>Descrição <textarea id="tDescricao" rows="3"></textarea></label>
-          <div class="grid-2">
-            <label>Prioridade
-              <select id="tPrioridade">
+          <div class="filter-bar">
+            <div id="statusChips" class="filter-status-chips">
+              <button class="status-chip active" data-status="">Todos</button>
+              <button class="status-chip" data-status="BACKLOG">Backlog</button>
+              <button class="status-chip" data-status="A_FAZER">A fazer</button>
+              <button class="status-chip" data-status="EM_ANDAMENTO">Em andamento</button>
+              <button class="status-chip" data-status="REVISAO">Revisão</button>
+              <button class="status-chip" data-status="CONCLUIDO">Concluído</button>
+            </div>
+            <div class="filter-selects">
+              <select id="filterPriority" class="filter-select">
+                <option value="">Prioridade</option>
+                <option value="URGENTE">Urgente</option>
+                <option value="ALTA">Alta</option>
+                <option value="MEDIA">Média</option>
                 <option value="BAIXA">Baixa</option>
-                <option value="MEDIA" selected>Média</option>
+              </select>
+              <select id="filterTeam" class="filter-select">
+                <option value="">Equipe</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="kanbanBoard" class="kanban"></div>
+
+          <div id="listViewWrap" hidden>
+            <div class="card">
+              <table class="data-table task-table">
+                <thead>
+                  <tr>
+                    <th class="sortable" data-sort="titulo">Título <span class="sort-arrow"></span></th>
+                    <th>Status</th>
+                    <th class="sortable" data-sort="prioridade">Prioridade <span class="sort-arrow"></span></th>
+                    <th>Responsável</th>
+                    <th class="sortable" data-sort="data_fim_planejado">Prazo <span class="sort-arrow"></span></th>
+                  </tr>
+                </thead>
+                <tbody id="taskTableBody"></tbody>
+              </table>
+            </div>
+            <div id="listPagination" class="pagination-bar"></div>
+          </div>
+        </section>
+
+        <!-- TEAMS -->
+        <section id="teamsView" class="view" hidden>
+          <div class="section-header">
+            <h2>Equipes</h2>
+            <button id="newTeamBtn" class="btn-primary">+ Nova equipe</button>
+          </div>
+          <div id="teamList" class="card-list-wrap"></div>
+        </section>
+
+        <!-- USERS -->
+        <section id="usersView" class="view" hidden>
+          <div class="section-header">
+            <h2>Usuários</h2>
+            <button id="newUserBtn" class="btn-primary">+ Novo usuário</button>
+          </div>
+          <div class="card">
+            <table class="data-table">
+              <thead>
+                <tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Perfil</th><th></th></tr>
+              </thead>
+              <tbody id="userList"></tbody>
+            </table>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- TASK DETAIL PANEL -->
+  <div id="taskDetailOverlay" class="panel-overlay" hidden>
+    <div class="panel-backdrop" id="panelBackdrop"></div>
+    <aside class="task-panel" id="taskPanel">
+      <div class="panel-header">
+        <select id="panelStatus" class="panel-status-select"></select>
+        <button id="closePanelBtn" class="icon-btn panel-close" title="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="panel-scroll">
+        <div id="panelTitle" class="panel-title" contenteditable="plaintext-only" data-placeholder="Título da tarefa"></div>
+        <div class="panel-fields">
+          <div class="pf-row">
+            <div class="pf-item">
+              <span class="pf-label">Prioridade</span>
+              <select id="panelPriority" class="pf-select">
+                <option value="BAIXA">Baixa</option>
+                <option value="MEDIA">Média</option>
                 <option value="ALTA">Alta</option>
                 <option value="URGENTE">Urgente</option>
               </select>
-            </label>
-            <label>Prazo
-              <input type="date" id="tPrazo" />
-            </label>
+            </div>
+            <div class="pf-item">
+              <span class="pf-label">Tipo</span>
+              <input type="text" id="panelTipo" class="pf-input" placeholder="—" />
+            </div>
           </div>
-          <label>Equipe
-            <select id="tTeam" required></select>
-          </label>
-          <label>Responsáveis
-            <select id="tUsers" multiple size="4"></select>
-            <span class="hint">Segure Ctrl/Cmd para selecionar mais de um.</span>
-          </label>
-          <div class="dialog-actions">
-            <button type="button" id="cancelTaskBtn" class="btn-ghost">Cancelar</button>
-            <button type="submit" class="btn-primary">Criar tarefa</button>
+          <div class="pf-row">
+            <div class="pf-item">
+              <span class="pf-label">Início planejado</span>
+              <input type="date" id="panelStartDate" class="pf-input" />
+            </div>
+            <div class="pf-item">
+              <span class="pf-label">Prazo</span>
+              <input type="date" id="panelDueDate" class="pf-input" />
+            </div>
           </div>
-        </form>
-      </dialog>
-
-      <dialog id="statusDialog">
-        <form method="dialog">
-          <h3 id="statusTaskTitle">Alterar status</h3>
-          <div class="status-options" id="statusOptions"></div>
-          <div class="dialog-actions">
-            <button type="button" class="btn-danger" id="deleteTaskBtn">Excluir tarefa</button>
-            <button type="button" class="btn-ghost" id="cancelStatusBtn">Fechar</button>
+          <div class="pf-row">
+            <div class="pf-item full">
+              <span class="pf-label">Solicitante</span>
+              <input type="text" id="panelSolicitante" class="pf-input" placeholder="—" />
+            </div>
           </div>
-        </form>
-      </dialog>
+          <div class="pf-row">
+            <div class="pf-item full">
+              <span class="pf-label">Descrição</span>
+              <textarea id="panelDescricao" class="pf-textarea" rows="4" placeholder="Adicione uma descrição…"></textarea>
+            </div>
+          </div>
+        </div>
 
-      <p id="taskFormError" class="error" hidden></p>
-    </section>
+        <div class="panel-section">
+          <h4 class="section-label">Responsáveis</h4>
+          <div id="panelAssignees" class="assignees-wrap"></div>
+        </div>
 
-    <!-- ADMIN: EQUIPES -->
-    <section id="adminTeamsView" class="view" hidden>
-      <div class="row-between">
-        <h2>Equipes</h2>
-        <button id="newTeamBtn" class="btn-primary">+ Nova equipe</button>
+        <div class="panel-section">
+          <h4 class="section-label">Comentários <span id="commentCount" class="count-badge"></span></h4>
+          <div id="panelComments" class="comments-list"></div>
+          <div id="commentInputWrap" class="comment-compose">
+            <textarea id="commentInput" class="comment-textarea" rows="2" placeholder="Escreva um comentário… (Ctrl+Enter para enviar)"></textarea>
+            <button id="sendCommentBtn" class="btn-primary btn-sm">Enviar</button>
+          </div>
+        </div>
       </div>
-      <div id="teamList" class="card-list-wrap"></div>
-
-      <dialog id="teamDialog">
-        <form id="teamForm" method="dialog">
-          <h3>Nova equipe</h3>
-          <label>Nome <input type="text" id="teamNome" required minlength="2" /></label>
-          <div class="dialog-actions">
-            <button type="button" id="cancelTeamBtn" class="btn-ghost">Cancelar</button>
-            <button type="submit" class="btn-primary">Criar</button>
-          </div>
-        </form>
-      </dialog>
-
-      <dialog id="collabDialog">
-        <form method="dialog">
-          <h3 id="collabTitle">Colaboradores</h3>
-          <p class="muted">Marque os usuários que fazem parte desta equipe.</p>
-          <div id="collabList" class="collab-list"></div>
-          <div class="dialog-actions">
-            <button type="button" id="closeCollabBtn" class="btn-primary">Concluído</button>
-          </div>
-        </form>
-      </dialog>
-    </section>
-
-    <!-- ADMIN: USUÁRIOS -->
-    <section id="adminUsersView" class="view" hidden>
-      <div class="row-between">
-        <h2>Gestão de Usuários</h2>
-        <button id="newUserBtn" class="btn-primary">+ Novo usuário</button>
+      <div class="panel-footer">
+        <button id="panelDeleteBtn" class="btn-danger-ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          Excluir tarefa
+        </button>
       </div>
+    </aside>
+  </div>
 
-      <div class="card">
-        <table class="data-table">
-          <thead>
-            <tr><th>Nome</th><th>E-mail</th><th>Cargo</th><th>Perfil</th><th></th></tr>
-          </thead>
-          <tbody id="userList"></tbody>
-        </table>
+  <!-- DIALOGS -->
+  <dialog id="taskDialog">
+    <form id="taskForm">
+      <h3>Nova tarefa</h3>
+      <label>Título <input type="text" id="tTitulo" required minlength="3" /></label>
+      <label>Descrição <textarea id="tDescricao" rows="3"></textarea></label>
+      <div class="grid-2">
+        <label>Prioridade
+          <select id="tPrioridade">
+            <option value="BAIXA">Baixa</option>
+            <option value="MEDIA" selected>Média</option>
+            <option value="ALTA">Alta</option>
+            <option value="URGENTE">Urgente</option>
+          </select>
+        </label>
+        <label>Prazo <input type="date" id="tPrazo" /></label>
       </div>
+      <label>Equipe <select id="tTeam" required></select></label>
+      <label>Responsáveis
+        <select id="tUsers" multiple size="4"></select>
+        <span class="hint">Ctrl/Cmd para selecionar mais de um.</span>
+      </label>
+      <p id="taskFormError" class="form-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="cancelTaskBtn" class="btn-ghost">Cancelar</button>
+        <button type="submit" class="btn-primary">Criar tarefa</button>
+      </div>
+    </form>
+  </dialog>
 
-      <dialog id="userDialog">
-        <form id="userForm" method="dialog">
-          <h3 id="userDialogTitle">Novo usuário</h3>
-          <input type="hidden" id="userId" />
-          <label>Nome <input type="text" id="uNome" required minlength="2" /></label>
-          <label>E-mail <input type="email" id="uEmail" required /></label>
-          <label>Telefone <input type="text" id="uTelefone" /></label>
-          <label>Cargo <input type="text" id="uCargo" /></label>
-          <label>Igreja <input type="text" id="uIgreja" /></label>
-          <label>Perfil
-            <select id="uRole">
-              <option value="COLLABORATOR">Colaborador</option>
-              <option value="MANAGER">Gestor</option>
-              <option value="ADMIN">Administrador</option>
-            </select>
-          </label>
-          <label id="uSenhaLabel">Senha inicial <input type="password" id="uSenha" minlength="6" /></label>
-          <div class="dialog-actions">
-            <button type="button" id="cancelUserBtn" class="btn-ghost">Cancelar</button>
-            <button type="submit" class="btn-primary">Salvar</button>
-          </div>
-        </form>
-      </dialog>
+  <dialog id="teamDialog">
+    <form id="teamForm">
+      <h3>Nova equipe</h3>
+      <label>Nome <input type="text" id="teamNome" required minlength="2" /></label>
+      <div class="dialog-actions">
+        <button type="button" id="cancelTeamBtn" class="btn-ghost">Cancelar</button>
+        <button type="submit" class="btn-primary">Criar</button>
+      </div>
+    </form>
+  </dialog>
 
-      <p id="userFormError" class="error" hidden></p>
-    </section>
-  </main>
+  <dialog id="collabDialog">
+    <form>
+      <h3 id="collabTitle">Colaboradores</h3>
+      <p class="muted">Marque os usuários que fazem parte desta equipe.</p>
+      <div id="collabList" class="collab-list"></div>
+      <div class="dialog-actions">
+        <button type="button" id="closeCollabBtn" class="btn-primary">Concluído</button>
+      </div>
+    </form>
+  </dialog>
 
+  <dialog id="userDialog">
+    <form id="userForm">
+      <h3 id="userDialogTitle">Novo usuário</h3>
+      <input type="hidden" id="userId" />
+      <div class="grid-2">
+        <label>Nome <input type="text" id="uNome" required minlength="2" /></label>
+        <label>E-mail <input type="email" id="uEmail" required /></label>
+      </div>
+      <div class="grid-2">
+        <label>Telefone <input type="text" id="uTelefone" /></label>
+        <label>Cargo <input type="text" id="uCargo" /></label>
+      </div>
+      <div class="grid-2">
+        <label>Igreja <input type="text" id="uIgreja" /></label>
+        <label>Perfil
+          <select id="uRole">
+            <option value="COLLABORATOR">Colaborador</option>
+            <option value="MANAGER">Gestor</option>
+            <option value="ADMIN">Administrador</option>
+          </select>
+        </label>
+      </div>
+      <label id="uSenhaLabel">Senha inicial <input type="password" id="uSenha" minlength="6" /></label>
+      <p id="userFormError" class="form-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="cancelUserBtn" class="btn-ghost">Cancelar</button>
+        <button type="submit" class="btn-primary">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog" class="confirm-dialog">
+    <div class="confirm-body">
+      <p id="confirmMsg" class="confirm-msg"></p>
+      <div class="dialog-actions">
+        <button id="confirmCancel" class="btn-ghost">Cancelar</button>
+        <button id="confirmOk" class="btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
