@@ -4,6 +4,9 @@
 -- Idempotente: pode rodar mais de uma vez sem duplicar.
 -- ============================================================
 
+-- 0. Backlog foi removido da UI: normaliza tarefas legadas para "A fazer"
+UPDATE tasks SET status = 'A_FAZER' WHERE status = 'BACKLOG' AND deleted_at IS NULL;
+
 -- 1. Campanhas (com coordenadas reais p/ aparecerem no Mapa)
 INSERT INTO campaigns (id, nome, descricao, cor, data_evento, local, lat, lng, link_assets)
 VALUES

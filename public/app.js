@@ -8,6 +8,8 @@ const STATUS_LABELS = {
   EM_ANDAMENTO: 'Em andamento', REVISAO: 'Revisão', CONCLUIDO: 'Concluído',
 }
 const STATUS_ORDER = ['BACKLOG','A_FAZER','EM_ANDAMENTO','REVISAO','CONCLUIDO']
+// Backlog foi removido da UI — tarefas legadas em BACKLOG aparecem como "A fazer"
+const UI_STATUS_ORDER = ['A_FAZER','EM_ANDAMENTO','REVISAO','CONCLUIDO']
 
 const PRIORITY_LABELS = { BAIXA:'Baixa', MEDIA:'Média', ALTA:'Alta', URGENTE:'Urgente' }
 const PRIORITY_ORDER  = { URGENTE:0, ALTA:1, MEDIA:2, BAIXA:3 }
@@ -533,10 +535,10 @@ function populateUserFilter() {
 /* ── Kanban render ─────────────────────────────────────────────── */
 // Backlog e "A fazer" são mescladas em uma única coluna (drop → A_FAZER)
 const KANBAN_COLUMNS = [
-  { label:'Backlog / A fazer', statuses:['BACKLOG','A_FAZER'], dropStatus:'A_FAZER' },
-  { label:'Em andamento',      statuses:['EM_ANDAMENTO'],      dropStatus:'EM_ANDAMENTO' },
-  { label:'Revisão',           statuses:['REVISAO'],           dropStatus:'REVISAO' },
-  { label:'Concluído',         statuses:['CONCLUIDO'],         dropStatus:'CONCLUIDO' },
+  { label:'A fazer',      statuses:['BACKLOG','A_FAZER'], dropStatus:'A_FAZER' },
+  { label:'Em andamento', statuses:['EM_ANDAMENTO'],      dropStatus:'EM_ANDAMENTO' },
+  { label:'Revisão',      statuses:['REVISAO'],           dropStatus:'REVISAO' },
+  { label:'Concluído',    statuses:['CONCLUIDO'],         dropStatus:'CONCLUIDO' },
 ]
 function renderKanban() {
   const board = $('#kanbanBoard')
@@ -836,9 +838,11 @@ function closePanel() {
 }
 function populatePanel(task) {
   const statusSel = $('#panelStatus')
-  statusSel.innerHTML = STATUS_ORDER.map(k =>
-    `<option value="${k}"${task.status===k?' selected':''}>${STATUS_LABELS[k]}</option>`).join('')
-  const ss = STATUS_STYLE[task.status]||{}
+  // Backlog removido da UI: tarefa legada em BACKLOG é exibida como "A fazer"
+  const uiStatus = task.status === 'BACKLOG' ? 'A_FAZER' : task.status
+  statusSel.innerHTML = UI_STATUS_ORDER.map(k =>
+    `<option value="${k}"${uiStatus===k?' selected':''}>${STATUS_LABELS[k]}</option>`).join('')
+  const ss = STATUS_STYLE[uiStatus]||{}
   Object.assign(statusSel.style, { background:ss.bg||'', color:ss.color||'', borderColor:ss.color||'' })
 
   const titleEl = $('#panelTitle')
@@ -901,7 +905,9 @@ function populatePanel(task) {
 async function renderPanelCampaign(task) {
   const sel = $('#panelCampaign')
   if (!sel) return
-  if (!state.campaigns.length) { try { state.campaigns = await api('/campaigns') } catch {} }
+  if (!Array.isArray(state.campaigns) || !state.campaigns.length) {
+    try { const c = await api('/campaigns'); state.campaigns = Array.isArray(c) ? c : [] } catch { state.campaigns = state.campaigns || [] }
+  }
   populateCampaignSelect('#panelCampaign', task.campaign_id || '')
   sel.disabled = !isAdmin()
   // Assets compartilhados da campanha (somente leitura no painel da tarefa)
@@ -1087,9 +1093,15 @@ $('#newTaskBtn').addEventListener('click', async () => {
   $('#taskFormError').hidden = true
   $('#tTitulo').value=''; $('#tDescricao').value=''; $('#tPrioridade').value='MEDIA'; $('#tCanal').value=''; $('#tPrazo').value=''
   try {
-    if (!state.teams.length) state.teams = await api('/teams')
-    if (!state.users.length) state.users  = await api('/users')
-    if (!state.campaigns.length) { try { state.campaigns = await api('/campaigns') } catch {} }
+    if (!Array.isArray(state.teams) || !state.teams.length) {
+      const t = await api('/teams');     state.teams = Array.isArray(t) ? t : []
+    }
+    if (!Array.isArray(state.users) || !state.users.length) {
+      const u = await api('/users');     state.users = Array.isArray(u) ? u : []
+    }
+    if (!Array.isArray(state.campaigns) || !state.campaigns.length) {
+      try { const c = await api('/campaigns'); state.campaigns = Array.isArray(c) ? c : [] } catch { state.campaigns = state.campaigns || [] }
+    }
   } catch (err) { toast(err.message,'error'); return }
   if (!state.teams.length) { toast('Crie ao menos uma equipe primeiro.','error'); navigate('teams'); return }
   $('#tTeam').innerHTML = state.teams.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join('')
@@ -2019,7 +2031,7 @@ $('#campaignForm')?.addEventListener('submit', async e => {
 function populateCampaignSelect(sel, currentValue) {
   const el = $(sel); if (!el) return
   el.innerHTML = '<option value="">— Sem campanha —</option>' +
-    state.campaigns.map(c => `<option value="${c.id}"${c.id===currentValue?' selected':''}>${escapeHtml(c.nome)}</option>`).join('')
+    (state.campaigns || []).map(c => `<option value="${c.id}"${c.id===currentValue?' selected':''}>${escapeHtml(c.nome)}</option>`).join('')
 }
 
 /* ── Map view (Leaflet + OpenStreetMap) ────────────────────────── */

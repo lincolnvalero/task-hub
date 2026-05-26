@@ -39,6 +39,7 @@ export class PrismaTasksRepository implements ITasksRepository {
         id:                    randomUUID(),
         titulo:                data.titulo,
         descricao:             data.descricao,
+        status:                'A_FAZER',
         prioridade:            data.prioridade ?? 'MEDIA',
         tipo_tarefa:           data.tipo_tarefa,
         solicitante:           data.solicitante,
