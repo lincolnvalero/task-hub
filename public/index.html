@@ -69,6 +69,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <span>Usuários</span>
         </button>
+        <button class="nav-item admin-only" data-view="briefings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <span>Briefings</span>
+        </button>
       </nav>
       <div class="sidebar-footer">
         <div class="user-pill">
@@ -99,23 +103,44 @@
         </div>
       </header>
 
+      <div id="guestBanner" class="guest-banner" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Você está em modo <strong>visitante</strong> — acesso somente leitura. Para solicitar um briefing, <a href="/briefing.html" target="_blank" style="color:inherit;text-decoration:underline">clique aqui</a>.
+      </div>
+
       <main id="viewContainer" class="view-container">
 
         <!-- DASHBOARD -->
         <section id="dashboardView" class="view" hidden>
           <div class="section-header">
             <h2>Dashboard</h2>
-            <button id="refreshDashBtn" class="btn-ghost btn-sm">↺ Atualizar</button>
+            <div class="header-right-group">
+              <select id="dashPeriod" class="dash-period-select">
+                <option value="all">Todo o período</option>
+                <option value="30d">Últimos 30 dias</option>
+                <option value="90d">Últimos 90 dias</option>
+                <option value="year">Este ano</option>
+              </select>
+              <button id="refreshDashBtn" class="btn-ghost btn-sm">↺ Atualizar</button>
+            </div>
           </div>
           <div id="kpiGrid" class="kpi-grid"></div>
-          <div class="charts-grid">
+          <div class="charts-grid-2x2">
             <div class="chart-card">
               <h3 class="chart-title">Status das tarefas</h3>
               <div class="chart-wrap donut-wrap"><canvas id="chartStatus"></canvas></div>
             </div>
             <div class="chart-card">
+              <h3 class="chart-title">Tarefas por canal</h3>
+              <div class="chart-wrap"><canvas id="chartCanal"></canvas></div>
+            </div>
+            <div class="chart-card">
               <h3 class="chart-title">Tarefas por equipe</h3>
               <div class="chart-wrap"><canvas id="chartTeams"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h3 class="chart-title">Carga por responsável</h3>
+              <div class="chart-wrap"><canvas id="chartWorkload"></canvas></div>
             </div>
           </div>
           <div class="upcoming-card">
@@ -134,6 +159,12 @@
               </button>
               <button id="btnViewList" class="view-toggle-btn" title="Lista">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+              <button id="btnViewGallery" class="view-toggle-btn" title="Galeria">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              </button>
+              <button id="btnViewTimeline" class="view-toggle-btn" title="Linha do tempo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><polyline points="8 8 3 12 8 16"/><line x1="9" y1="5" x2="9" y2="9"/><line x1="15" y1="5" x2="15" y2="19"/><line x1="9" y1="15" x2="9" y2="19"/></svg>
               </button>
             </div>
           </div>
@@ -158,8 +189,31 @@
               <select id="filterTeam" class="filter-select">
                 <option value="">Equipe</option>
               </select>
+              <select id="filterCanal" class="filter-select">
+                <option value="">Canal</option>
+                <option value="INSTAGRAM">Instagram</option>
+                <option value="YOUTUBE">YouTube</option>
+                <option value="TIKTOK">TikTok</option>
+                <option value="LINKEDIN">LinkedIn</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="SITE">Site</option>
+                <option value="EMAIL">E-mail</option>
+                <option value="EVENTO">Evento</option>
+                <option value="APRESENTACAO">Apresentação</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+              <select id="filterUser" class="filter-select">
+                <option value="">Responsável</option>
+              </select>
+              <select id="filterDeadline" class="filter-select">
+                <option value="">Prazo</option>
+                <option value="today">Vence hoje</option>
+                <option value="week">Vence esta semana</option>
+                <option value="overdue">Vencido</option>
+              </select>
             </div>
           </div>
+          <div id="activeFilterChips" class="active-filter-chips" hidden></div>
 
           <div id="kanbanBoard" class="kanban"></div>
 
@@ -171,14 +225,30 @@
                     <th class="sortable" data-sort="titulo">Título <span class="sort-arrow"></span></th>
                     <th>Status</th>
                     <th class="sortable" data-sort="prioridade">Prioridade <span class="sort-arrow"></span></th>
+                    <th>Canal</th>
                     <th>Responsável</th>
+                    <th>Equipe</th>
                     <th class="sortable" data-sort="data_fim_planejado">Prazo <span class="sort-arrow"></span></th>
+                    <th class="sortable" data-sort="created_at">Criado em <span class="sort-arrow"></span></th>
                   </tr>
                 </thead>
                 <tbody id="taskTableBody"></tbody>
               </table>
             </div>
             <div id="listPagination" class="pagination-bar"></div>
+          </div>
+
+          <div id="galleryViewWrap" hidden>
+            <div id="galleryGrid" class="gallery-grid"></div>
+          </div>
+
+          <div id="timelineViewWrap" hidden>
+            <div class="timeline-controls card">
+              <span class="tl-label">📅 Linha do tempo</span>
+              <button id="timelineZoomIn"  class="btn-ghost btn-sm">+</button>
+              <button id="timelineZoomOut" class="btn-ghost btn-sm">−</button>
+            </div>
+            <div id="timelineChart" class="timeline-wrap card"></div>
           </div>
         </section>
 
@@ -207,6 +277,20 @@
               </thead>
               <tbody id="userList"></tbody>
             </table>
+          </div>
+        </section>
+
+        <!-- BRIEFINGS -->
+        <section id="briefingsView" class="view" hidden>
+          <div class="section-header">
+            <h2>Briefings</h2>
+            <div class="header-right-group">
+              <button id="refreshBriefingsBtn" class="btn-ghost btn-sm">↺ Atualizar</button>
+              <a href="/briefing.html" target="_blank" class="btn-outline btn-sm">🔗 Link público</a>
+            </div>
+          </div>
+          <div id="briefingsList" class="briefing-list">
+            <p class="muted">Carregando…</p>
           </div>
         </section>
 
@@ -279,8 +363,30 @@
               </select>
             </div>
             <div class="pf-item">
+              <span class="pf-label">Canal</span>
+              <select id="panelCanal" class="pf-select">
+                <option value="">—</option>
+                <option value="INSTAGRAM">Instagram</option>
+                <option value="YOUTUBE">YouTube</option>
+                <option value="TIKTOK">TikTok</option>
+                <option value="LINKEDIN">LinkedIn</option>
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="SITE">Site</option>
+                <option value="EMAIL">E-mail</option>
+                <option value="EVENTO">Evento</option>
+                <option value="APRESENTACAO">Apresentação</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+            </div>
+          </div>
+          <div class="pf-row">
+            <div class="pf-item">
               <span class="pf-label">Tipo</span>
               <input type="text" id="panelTipo" class="pf-input" placeholder="—" />
+            </div>
+            <div class="pf-item">
+              <span class="pf-label">Solicitante</span>
+              <input type="text" id="panelSolicitante" class="pf-input" placeholder="—" />
             </div>
           </div>
           <div class="pf-row">
@@ -295,14 +401,40 @@
           </div>
           <div class="pf-row">
             <div class="pf-item full">
-              <span class="pf-label">Solicitante</span>
-              <input type="text" id="panelSolicitante" class="pf-input" placeholder="—" />
+              <span class="pf-label">Descrição</span>
+              <textarea id="panelDescricao" class="pf-textarea" rows="4" placeholder="Adicione uma descrição…"></textarea>
+            </div>
+          </div>
+          <div class="pf-row">
+            <div class="pf-item">
+              <span class="pf-label">Hora de publicação</span>
+              <input type="time" id="panelHoraPublicacao" class="pf-input" />
+            </div>
+            <div class="pf-item">
+              <span class="pf-label">Dias de produção</span>
+              <input type="number" id="panelProductionDays" class="pf-input" min="1" max="365" placeholder="—" />
             </div>
           </div>
           <div class="pf-row">
             <div class="pf-item full">
-              <span class="pf-label">Descrição</span>
-              <textarea id="panelDescricao" class="pf-textarea" rows="4" placeholder="Adicione uma descrição…"></textarea>
+              <span class="pf-label">Google Drive</span>
+              <div class="link-field-row">
+                <input type="url" id="panelGdrive" class="pf-input" placeholder="https://drive.google.com/…" />
+                <a id="panelGdriveOpen" href="#" target="_blank" class="link-open-btn" hidden title="Abrir no Drive">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+          <div class="pf-row">
+            <div class="pf-item full">
+              <span class="pf-label">Frame.io</span>
+              <div class="link-field-row">
+                <input type="url" id="panelFrameio" class="pf-input" placeholder="https://app.frame.io/…" />
+                <a id="panelFrameioOpen" href="#" target="_blank" class="link-open-btn" hidden title="Abrir no Frame.io">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -312,12 +444,45 @@
           <div id="panelAssignees" class="assignees-wrap"></div>
         </div>
 
+        <div class="panel-section vote-section">
+          <div style="display:flex;align-items:center;gap:10px">
+            <h4 class="section-label">Votos</h4>
+            <button id="panelVoteBtn" class="vote-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+              <span id="panelVoteCount">0</span> votos
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-section" id="sectionChecklist">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <h4 class="section-label">Checklist</h4>
+            <span id="checklistCount" class="count-badge"></span>
+          </div>
+          <div id="checklistProgressWrap" hidden>
+            <div class="checklist-progress"><div id="checklistProgressFill" class="checklist-progress-fill" style="width:0%"></div></div>
+          </div>
+          <div id="panelChecklist" class="checklist-list"></div>
+          <div id="checklistAddWrap" class="checklist-add-wrap" hidden>
+            <input id="checklistInput" type="text" class="checklist-input" placeholder="Novo item de checklist…" maxlength="500" />
+            <input id="checklistDeadline" type="date" class="checklist-deadline-input" title="Prazo do item" />
+            <button id="checklistAddBtn" class="btn-primary btn-sm">+</button>
+          </div>
+        </div>
+
         <div class="panel-section">
           <h4 class="section-label">Comentários <span id="commentCount" class="count-badge"></span></h4>
           <div id="panelComments" class="comments-list"></div>
           <div id="commentInputWrap" class="comment-compose">
             <textarea id="commentInput" class="comment-textarea" rows="2" placeholder="Escreva um comentário… (Ctrl+Enter para enviar)"></textarea>
-            <button id="sendCommentBtn" class="btn-primary btn-sm">Enviar</button>
+            <div class="comment-actions-row">
+              <button id="sendCommentBtn" class="btn-primary btn-sm">Enviar</button>
+              <button id="toggleAttachBtn" class="btn-ghost btn-sm" title="Anexar link">📎</button>
+            </div>
+            <div class="attach-url-wrap" id="attachUrlWrap" hidden>
+              <input type="url" id="attachInput" class="pf-input" placeholder="Cole um link (Drive, Frame.io, Dropbox…)" />
+              <button id="attachBtn" class="btn-ghost btn-sm">Anexar</button>
+            </div>
           </div>
         </div>
       </div>
@@ -347,7 +512,31 @@
         </label>
         <label>Prazo <input type="date" id="tPrazo" /></label>
       </div>
-      <label>Equipe <select id="tTeam" required></select></label>
+      <div class="grid-2">
+        <label>Canal
+          <select id="tCanal">
+            <option value="">— Nenhum —</option>
+            <option value="INSTAGRAM">Instagram</option>
+            <option value="YOUTUBE">YouTube</option>
+            <option value="TIKTOK">TikTok</option>
+            <option value="LINKEDIN">LinkedIn</option>
+            <option value="WHATSAPP">WhatsApp</option>
+            <option value="SITE">Site</option>
+            <option value="EMAIL">E-mail</option>
+            <option value="EVENTO">Evento</option>
+            <option value="APRESENTACAO">Apresentação</option>
+            <option value="OUTRO">Outro</option>
+          </select>
+        </label>
+        <label>Equipe <select id="tTeam" required></select></label>
+      </div>
+      <div class="grid-2">
+        <label>Início planejado <input type="date" id="tStartDate" /></label>
+        <label>Dias de produção
+          <input type="number" id="tProductionDays" min="1" max="365" placeholder="ex: 5" />
+          <span class="hint">Preencha ambos para calcular o prazo automaticamente.</span>
+        </label>
+      </div>
       <label>Responsáveis
         <select id="tUsers" multiple size="4"></select>
         <span class="hint">Ctrl/Cmd para selecionar mais de um.</span>

@@ -12,6 +12,17 @@ const STATUS_ORDER = ['BACKLOG','A_FAZER','EM_ANDAMENTO','REVISAO','CONCLUIDO']
 const PRIORITY_LABELS = { BAIXA:'Baixa', MEDIA:'Média', ALTA:'Alta', URGENTE:'Urgente' }
 const PRIORITY_ORDER  = { URGENTE:0, ALTA:1, MEDIA:2, BAIXA:3 }
 
+const CANAL_LABELS = {
+  INSTAGRAM:'Instagram', YOUTUBE:'YouTube', TIKTOK:'TikTok',
+  LINKEDIN:'LinkedIn', WHATSAPP:'WhatsApp', SITE:'Site',
+  EMAIL:'E-mail', EVENTO:'Evento', APRESENTACAO:'Apresentação', OUTRO:'Outro',
+}
+const CANAL_COLORS = {
+  INSTAGRAM:'#E1306C', YOUTUBE:'#FF4444', TIKTOK:'#69C9D0',
+  LINKEDIN:'#0077B5', WHATSAPP:'#25D366', SITE:'#6366f1',
+  EMAIL:'#f59e0b', EVENTO:'#a78bfa', APRESENTACAO:'#06b6d4', OUTRO:'#6b7280',
+}
+
 const VALID_TRANSITIONS = {
   BACKLOG:      ['A_FAZER'],
   A_FAZER:      ['EM_ANDAMENTO','BACKLOG'],
@@ -35,13 +46,14 @@ const state = {
   teams:        [],
   users:        [],
   currentTaskId: null,
-  filters:      { status:'', priority:'', teamId:'' },
+  filters:      { status:'', priority:'', teamId:'', canal:'', userId:'', deadline:'' },
   listSort:     { key:'data_fim_planejado', dir:'asc' },
   listPage:     1,
   listView:     'kanban',
-  charts:       { status:null, teams:null },
+  charts:       { status:null, teams:null, canal:null, workload:null },
   searchTO:     null,
   dragTaskId:   null,
+  _dashMetrics: null,
 }
 
 /* ── DOM helpers ──────────────────────────────────────────────── */
@@ -88,6 +100,12 @@ function priorityChip(p) {
 }
 function statusBadge(s) {
   return `<span class="status-badge sb-${s}">${STATUS_LABELS[s]||s}</span>`
+}
+function canalChip(c) {
+  if (!c) return ''
+  const color = CANAL_COLORS[c] || '#6b7280'
+  const label = CANAL_LABELS[c] || c
+  return `<span class="canal-badge" style="--canal-color:${color};--canal-bg:${color}22">${label}</span>`
 }
 
 /* ── API ───────────────────────────────────────────────────────── */
@@ -161,6 +179,8 @@ function showApp() {
   $('#sidebarRole').textContent = u.role
   $$('.admin-only').forEach(el => { el.hidden = !isAdmin() })
   $('[data-view="dashboard"]').hidden = !isAdmin()
+  const banner = $('#guestBanner')
+  if (banner) banner.hidden = u.role !== 'GUEST'
   navigate(isAdmin() ? 'dashboard' : 'tasks')
 }
 
@@ -174,6 +194,7 @@ function navigate(view) {
   if (view === 'tasks')     loadTasks()
   if (view === 'teams')     loadTeams()
   if (view === 'users')     loadUsers()
+  if (view === 'briefings') loadBriefings()
 }
 
 /* ── Auth events ───────────────────────────────────────────────── */
@@ -219,53 +240,101 @@ async function loadDashboard() {
       api('/tasks/kanban'),
       api('/dashboard/metrics'),
     ])
-    state.allTasks = Object.values(board).flat()
-    renderKpiCards(metrics.resumo)
-    renderChartStatus(metrics.tarefas_por_status)
-    renderChartTeams(metrics.tarefas_por_equipe)
-    renderUpcoming()
+    state.allTasks    = Object.values(board).flat()
+    state._dashMetrics = metrics
+    renderDashboard(metrics)
   } catch (err) { toast(err.message, 'error') }
 }
 $('#refreshDashBtn').addEventListener('click', loadDashboard)
+document.addEventListener('DOMContentLoaded', () => {
+  const dp = $('#dashPeriod')
+  if (dp) dp.addEventListener('change', () => { if (state._dashMetrics) renderDashboard(state._dashMetrics) })
+})
 
-function renderKpiCards(r) {
+function getDashPeriodTasks() {
+  const period = $('#dashPeriod')?.value || 'all'
+  if (period === 'all') return state.allTasks
+  const now = new Date(), cutoff = new Date(now)
+  if (period === '30d')  cutoff.setDate(now.getDate() - 30)
+  else if (period === '90d')  cutoff.setDate(now.getDate() - 90)
+  else if (period === 'year') { cutoff.setMonth(0); cutoff.setDate(1); cutoff.setHours(0,0,0,0) }
+  return state.allTasks.filter(t => !t.created_at || new Date(t.created_at) >= cutoff)
+}
+
+function renderDashboard(metrics) {
+  const tasks = getDashPeriodTasks()
+  renderKpiCards(tasks, metrics)
+  renderChartStatus(tasks)
+  renderChartCanal(tasks)
+  renderChartTeams(tasks)
+  renderChartWorkload(tasks)
+  renderUpcoming()
+}
+
+function renderKpiCards(tasks, metrics) {
+  const r = metrics?.resumo || {}
+  const done     = tasks.filter(t => t.status === 'CONCLUIDO').length
+  const active   = tasks.filter(t => t.status !== 'CONCLUIDO').length
+  const now = new Date(); now.setHours(0,0,0,0)
+  const overdue  = tasks.filter(t => t.status !== 'CONCLUIDO' && t.data_fim_planejado && new Date(t.data_fim_planejado) < now).length
+  const total    = tasks.length
+  const efficiency = total > 0 ? Math.round((done / total) * 100) : 0
   $('#kpiGrid').innerHTML = [
-    { label:'Tarefas ativas',     value: r.total_tarefas,           cls:'primary' },
-    { label:'Eficiência no prazo', value: r.eficiencia_prazo_pct+'%', cls:'success' },
-    { label:'Atrasadas',          value: r.tarefas_atrasadas,        cls:'danger'  },
-    { label:'Pend. candidatura',  value: r.candidaturas_pendentes,   cls:''        },
+    { label:'Tarefas no período',  value: total,        cls:'primary' },
+    { label:'Ativas',              value: active,       cls:'' },
+    { label:'Concluídas',          value: done,         cls:'success' },
+    { label:'Atrasadas',           value: overdue,      cls: overdue > 0 ? 'danger' : '' },
+    { label:'Eficiência',          value: efficiency+'%', cls: efficiency >= 70 ? 'success' : efficiency >= 40 ? '' : 'danger' },
+    { label:'Pend. candidatura',   value: r.candidaturas_pendentes ?? 0, cls:'' },
   ].map(k => `
     <div class="kpi-card ${k.cls}">
       <div class="kpi-label">${k.label}</div>
-      <div class="kpi-value">${k.value ?? 0}</div>
+      <div class="kpi-value">${k.value}</div>
     </div>`).join('')
 }
-function renderChartStatus(data) {
+
+function renderChartStatus(tasks) {
   const ctx = $('#chartStatus')
   if (!ctx) return
-  if (state.charts.status) state.charts.status.destroy()
+  if (state.charts.status) { state.charts.status.destroy(); state.charts.status = null }
   const COLORS = { BACKLOG:'#6b7280', A_FAZER:'#6366f1', EM_ANDAMENTO:'#8b5cf6', REVISAO:'#f59e0b', CONCLUIDO:'#22c55e' }
+  const counts = {}
+  STATUS_ORDER.forEach(s => { counts[s] = tasks.filter(t => t.status === s).length })
+  const labels = STATUS_ORDER.filter(s => counts[s] > 0)
+  if (!labels.length) return
   state.charts.status = new Chart(ctx, {
     type:'doughnut',
     data:{
-      labels: data.map(d => STATUS_LABELS[d.status]||d.status),
-      datasets:[{ data: data.map(d=>d.total), backgroundColor: data.map(d=>COLORS[d.status]||'#6366f1'), borderWidth:0, hoverOffset:8 }],
+      labels: labels.map(s => STATUS_LABELS[s]),
+      datasets:[{ data: labels.map(s => counts[s]), backgroundColor: labels.map(s => COLORS[s]||'#6366f1'), borderWidth:0, hoverOffset:8 }],
     },
     options:{
       responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ position:'bottom', labels:{ color:'#e2e4ee', padding:16, font:{family:'Inter',size:12} } } },
+      plugins:{ legend:{ position:'bottom', labels:{ color:'#e2e4ee', padding:12, font:{family:'Inter',size:11} } } },
     },
   })
 }
-function renderChartTeams(data) {
-  const ctx = $('#chartTeams')
+
+function renderChartCanal(tasks) {
+  const ctx = $('#chartCanal')
   if (!ctx) return
-  if (state.charts.teams) state.charts.teams.destroy()
-  state.charts.teams = new Chart(ctx, {
+  if (state.charts.canal) { state.charts.canal.destroy(); state.charts.canal = null }
+  const counts = {}
+  tasks.forEach(t => { if (t.canal) counts[t.canal] = (counts[t.canal]||0) + 1 })
+  const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a])
+  if (!labels.length) {
+    ctx.parentElement.innerHTML = '<p class="muted" style="text-align:center;padding:2rem 0">Sem dados de canal ainda.</p>'
+    return
+  }
+  state.charts.canal = new Chart(ctx, {
     type:'bar',
     data:{
-      labels: data.map(d=>d.team),
-      datasets:[{ data: data.map(d=>d.total), backgroundColor:'#6366f1', borderRadius:6, borderSkipped:false }],
+      labels: labels.map(c => CANAL_LABELS[c]||c),
+      datasets:[{
+        data: labels.map(c => counts[c]),
+        backgroundColor: labels.map(c => CANAL_COLORS[c]||'#6b7280'),
+        borderRadius:6, borderSkipped:false,
+      }],
     },
     options:{
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
@@ -277,6 +346,67 @@ function renderChartTeams(data) {
     },
   })
 }
+
+function renderChartTeams(tasks) {
+  const ctx = $('#chartTeams')
+  if (!ctx) return
+  if (state.charts.teams) { state.charts.teams.destroy(); state.charts.teams = null }
+  const counts = {}
+  tasks.forEach(t => {
+    ;(t.assignments||[]).forEach(a => {
+      const name = a.team?.nome || a.team_id
+      counts[name] = (counts[name]||0) + 1
+    })
+  })
+  const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a])
+  if (!labels.length) return
+  state.charts.teams = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{ data: labels.map(l => counts[l]), backgroundColor:'#6366f1', borderRadius:6, borderSkipped:false }],
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ color:'#2d3040' }, ticks:{ color:'#7b8194', font:{family:'Inter'} } },
+        y:{ grid:{ display:false },   ticks:{ color:'#e2e4ee', font:{family:'Inter'} } },
+      },
+    },
+  })
+}
+
+function renderChartWorkload(tasks) {
+  const ctx = $('#chartWorkload')
+  if (!ctx) return
+  if (state.charts.workload) { state.charts.workload.destroy(); state.charts.workload = null }
+  const counts = {}
+  tasks.filter(t => t.status !== 'CONCLUIDO').forEach(t => {
+    ;(t.assignments||[]).forEach(a => {
+      const name = a.user?.nome || a.user_id
+      counts[name] = (counts[name]||0) + 1
+    })
+  })
+  const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a]).slice(0,10)
+  if (!labels.length) return
+  state.charts.workload = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{ data: labels.map(l => counts[l]), backgroundColor: labels.map(l => counts[l] >= 5 ? '#ef4444' : '#8b5cf6'), borderRadius:6, borderSkipped:false }],
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ grid:{ color:'#2d3040' }, ticks:{ color:'#7b8194', font:{family:'Inter'}, stepSize:1 } },
+        y:{ grid:{ display:false },   ticks:{ color:'#e2e4ee', font:{family:'Inter'} } },
+      },
+    },
+  })
+}
+
 function renderUpcoming() {
   const list = $('#upcomingList')
   const soon = state.allTasks
@@ -287,6 +417,7 @@ function renderUpcoming() {
   list.innerHTML = soon.map(t => `
     <div class="upcoming-item" data-id="${t.id}">
       ${priorityChip(t.prioridade)}
+      ${t.canal ? canalChip(t.canal) : ''}
       <span class="upcoming-title">${escapeHtml(t.titulo)}</span>
       <span class="upcoming-meta">${deadlineChip(t.data_fim_planejado)}</span>
     </div>`).join('')
@@ -298,28 +429,57 @@ async function loadTasks() {
   try {
     const promises = [api('/tasks/kanban')]
     if (!state.teams.length) promises.push(api('/teams').then(t => { state.teams = t }))
+    if (!state.users.length) promises.push(api('/users').then(u => { state.users = u }))
     const [board] = await Promise.all(promises)
     state.allTasks = Object.values(board).flat()
     applyFiltersAndRender()
     populateTeamFilter()
+    populateUserFilter()
   } catch (err) { toast(err.message, 'error') }
 }
 function getFilteredTasks() {
   let t = state.allTasks
-  const { status, priority, teamId } = state.filters
+  const { status, priority, teamId, canal, userId, deadline } = state.filters
   if (status)   t = t.filter(x => x.status === status)
   if (priority) t = t.filter(x => x.prioridade === priority)
   if (teamId)   t = t.filter(x => (x.assignments||[]).some(a => a.team_id === teamId))
+  if (canal)    t = t.filter(x => x.canal === canal)
+  if (userId)   t = t.filter(x => (x.assignments||[]).some(a => a.user_id === userId))
+  if (deadline) {
+    const now = new Date(); now.setHours(0,0,0,0)
+    if (deadline === 'today') {
+      t = t.filter(x => x.status !== 'CONCLUIDO' && x.data_fim_planejado && (() => {
+        const d = new Date(x.data_fim_planejado); d.setHours(0,0,0,0); return +d === +now
+      })())
+    } else if (deadline === 'week') {
+      const wk = new Date(now); wk.setDate(now.getDate() + 7)
+      t = t.filter(x => x.status !== 'CONCLUIDO' && x.data_fim_planejado &&
+        new Date(x.data_fim_planejado) >= now && new Date(x.data_fim_planejado) <= wk)
+    } else if (deadline === 'overdue') {
+      t = t.filter(x => x.status !== 'CONCLUIDO' && x.data_fim_planejado && new Date(x.data_fim_planejado) < now)
+    }
+  }
   return t
 }
 function applyFiltersAndRender() {
-  state.listView === 'list' ? renderListView() : renderKanban()
+  if      (state.listView === 'list')     renderListView()
+  else if (state.listView === 'gallery')  renderGalleryView()
+  else if (state.listView === 'timeline') renderTimelineView()
+  else                                    renderKanban()
 }
 function populateTeamFilter() {
   const sel = $('#filterTeam')
   const cur = sel.value
   sel.innerHTML = '<option value="">Equipe</option>' +
     state.teams.map(t => `<option value="${t.id}"${t.id===cur?' selected':''}>${escapeHtml(t.nome)}</option>`).join('')
+}
+function populateUserFilter() {
+  const sel = $('#filterUser')
+  if (!sel) return
+  const cur = sel.value
+  sel.innerHTML = '<option value="">Responsável</option>' +
+    state.users.filter(u => u.role !== 'GUEST')
+      .map(u => `<option value="${u.id}"${u.id===cur?' selected':''}>${escapeHtml(u.nome)}</option>`).join('')
 }
 
 /* ── Kanban render ─────────────────────────────────────────────── */
@@ -342,7 +502,8 @@ function renderKanban() {
       <div class="col-body"></div>`
     const body = col.querySelector('.col-body')
     if (tasks.length === 0) {
-      body.innerHTML = '<div class="col-empty">Sem tarefas</div>'
+      const hasFilters = Object.values(state.filters).some(v => v)
+      body.innerHTML = `<div class="col-empty">${hasFilters ? 'Sem resultados' : 'Sem tarefas'}</div>`
     } else {
       tasks.forEach(t => body.appendChild(buildCard(t)))
     }
@@ -350,29 +511,82 @@ function renderKanban() {
     board.appendChild(col)
   }
 }
+const BUTLER_ACTIONS = {
+  BACKLOG:      [{ next:'A_FAZER',      label:'→ A fazer' }],
+  A_FAZER:      [{ next:'EM_ANDAMENTO', label:'→ Em andamento' }],
+  EM_ANDAMENTO: [{ next:'REVISAO',      label:'→ Revisão' }],
+  REVISAO:      [{ next:'CONCLUIDO',    label:'✓ Concluir' }, { next:'EM_ANDAMENTO', label:'↩ Devolver' }],
+  CONCLUIDO:    [{ next:'EM_ANDAMENTO', label:'↩ Reabrir' }],
+}
+function buildButlerButtons(status) {
+  return (BUTLER_ACTIONS[status]||[]).map(a =>
+    `<button class="butler-btn${a.next==='CONCLUIDO'?' advance':''}" data-next="${a.next}">${a.label}</button>`
+  ).join('')
+}
+function horaPublicacaoAlert(hora) {
+  if (!hora) return ''
+  const now = new Date()
+  const [h, m] = hora.split(':').map(Number)
+  const target = new Date(); target.setHours(h, m, 0, 0)
+  const diffMin = Math.round((target - now) / 60000)
+  if (diffMin >= 0 && diffMin <= 120) {
+    return `<div class="hora-alert">⏰ Publica às ${hora} (${diffMin}min)</div>`
+  }
+  return ''
+}
+
 function buildCard(task) {
   const card = document.createElement('div')
   card.className = 'task-card'
   card.dataset.id       = task.id
   card.dataset.priority = task.prioridade
   card.draggable        = isAdmin()
+  // Card aging
+  if (task.updated_at) {
+    const daysSince = Math.floor((Date.now() - new Date(task.updated_at)) / 86400000)
+    if (daysSince >= 14) card.classList.add('very-aged')
+    else if (daysSince >= 7) card.classList.add('aged')
+  }
   const avatars = (task.assignments||[]).filter(a=>a.user).slice(0,3).map(a => {
     const n = a.user.nome||'?'
     return `<span class="avatar-chip" style="background:${getAvatarColor(n)}" title="${escapeHtml(n)}">${getInitials(n)}</span>`
   }).join('')
   const commentN = (task.comments||[]).length
+  const voteN    = (task.votes||[]).length
+  const horaAlert = horaPublicacaoAlert(task.hora_publicacao)
   card.innerHTML = `
     <div class="card-title">${escapeHtml(task.titulo)}</div>
+    ${task.canal ? `<div style="margin-bottom:4px">${canalChip(task.canal)}</div>` : ''}
     <div class="card-meta">
-      <div style="display:flex;gap:4px;align-items:center">
+      <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
         ${priorityChip(task.prioridade)}
-        ${commentN ? `<span style="font-size:.7rem;color:var(--text-muted)">💬${commentN}</span>` : ''}
+        ${commentN ? `<span style="font-size:.7rem;color:var(--text-muted)">💬 ${commentN}</span>` : ''}
+        ${voteN    ? `<span class="card-vote-count">❤️ ${voteN}</span>` : ''}
       </div>
       ${deadlineChip(task.data_fim_planejado)}
     </div>
-    ${avatars ? `<div class="card-assignees" style="margin-top:8px">${avatars}</div>` : ''}`
+    ${horaAlert}
+    ${avatars ? `<div class="card-assignees" style="margin-top:8px">${avatars}</div>` : ''}
+    ${isAdmin() ? `<div class="card-butler">${buildButlerButtons(task.status)}</div>` : ''}`
   card.addEventListener('click', () => openPanel(task.id))
   if (isAdmin()) {
+    card.querySelectorAll('.butler-btn').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation()
+        const newStatus = btn.dataset.next
+        if (!(VALID_TRANSITIONS[task.status]||[]).includes(newStatus)) {
+          toast(`Transição não permitida: ${STATUS_LABELS[task.status]} → ${STATUS_LABELS[newStatus]}`, 'error'); return
+        }
+        try {
+          const payload = { status: newStatus }
+          if (newStatus === 'CONCLUIDO') payload.data_conclusao_efetiva = new Date().toISOString()
+          await api('/tasks/'+task.id+'/status', { method:'PATCH', body:JSON.stringify(payload) })
+          task.status = newStatus
+          toast(`Status → ${STATUS_LABELS[newStatus]}`, 'success')
+          applyFiltersAndRender()
+        } catch (err) { toast(err.message, 'error') }
+      })
+    })
     card.addEventListener('dragstart', e => {
       state.dragTaskId = task.id
       e.dataTransfer.effectAllowed = 'move'
@@ -431,15 +645,24 @@ function renderListView() {
   state.listPage = Math.min(state.listPage, pages)
   const page = sorted.slice((state.listPage-1)*LIST_PAGE_SZ, state.listPage*LIST_PAGE_SZ)
   const tbody = $('#taskTableBody')
+  const hasFilters = Object.values(state.filters).some(v => v)
   tbody.innerHTML = page.length
-    ? page.map(t => `<tr data-id="${t.id}">
-        <td>${escapeHtml(t.titulo)}</td>
-        <td>${statusBadge(t.status)}</td>
-        <td>${priorityChip(t.prioridade)}</td>
-        <td>${escapeHtml(t.assignments?.[0]?.user?.nome||'—')}</td>
-        <td>${deadlineChip(t.data_fim_planejado)}</td>
-      </tr>`).join('')
-    : '<tr><td colspan="5" class="muted" style="text-align:center;padding:2rem">Nenhuma tarefa encontrada.</td></tr>'
+    ? page.map(t => {
+        const assignee = t.assignments?.find(a => a.user)
+        const team     = t.assignments?.find(a => a.team)
+        const createdAt = t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}) : '—'
+        return `<tr data-id="${t.id}">
+          <td>${escapeHtml(t.titulo)}</td>
+          <td>${statusBadge(t.status)}</td>
+          <td>${priorityChip(t.prioridade)}</td>
+          <td>${t.canal ? canalChip(t.canal) : '—'}</td>
+          <td>${escapeHtml(assignee?.user?.nome||'—')}</td>
+          <td>${escapeHtml(team?.team?.nome||'—')}</td>
+          <td>${deadlineChip(t.data_fim_planejado)}</td>
+          <td style="font-size:.78rem;color:var(--text-muted)">${createdAt}</td>
+        </tr>`
+      }).join('')
+    : `<tr><td colspan="8" class="muted" style="text-align:center;padding:2rem">${hasFilters ? 'Nenhuma tarefa para estes filtros.' : 'Nenhuma tarefa encontrada.'}</td></tr>`
   $$('tr[data-id]',tbody).forEach(row => row.addEventListener('click', () => openPanel(row.dataset.id)))
   $$('.sortable').forEach(th => {
     th.classList.toggle('sort-asc',  th.dataset.sort===key && dir==='asc')
@@ -457,17 +680,26 @@ function renderListView() {
 }
 
 /* ── View toggle ───────────────────────────────────────────────── */
+function setViewContainers(active) {
+  $('#kanbanBoard').hidden     = active !== 'kanban'
+  $('#listViewWrap').hidden    = active !== 'list'
+  $('#galleryViewWrap').hidden = active !== 'gallery'
+  $('#timelineViewWrap').hidden = active !== 'timeline'
+  $$('.view-toggle-btn').forEach(b => b.classList.remove('active'))
+  const btns = { kanban:'#btnViewKanban', list:'#btnViewList', gallery:'#btnViewGallery', timeline:'#btnViewTimeline' }
+  if (btns[active]) $(btns[active]).classList.add('active')
+}
 $('#btnViewKanban').addEventListener('click', () => {
-  state.listView = 'kanban'
-  $('#btnViewKanban').classList.add('active'); $('#btnViewList').classList.remove('active')
-  $('#kanbanBoard').hidden = false; $('#listViewWrap').hidden = true
-  renderKanban()
+  state.listView = 'kanban'; setViewContainers('kanban'); renderKanban()
 })
 $('#btnViewList').addEventListener('click', () => {
-  state.listView = 'list'
-  $('#btnViewList').classList.add('active'); $('#btnViewKanban').classList.remove('active')
-  $('#kanbanBoard').hidden = true; $('#listViewWrap').hidden = false
-  renderListView()
+  state.listView = 'list'; setViewContainers('list'); renderListView()
+})
+$('#btnViewGallery').addEventListener('click', () => {
+  state.listView = 'gallery'; setViewContainers('gallery'); renderGalleryView()
+})
+$('#btnViewTimeline').addEventListener('click', () => {
+  state.listView = 'timeline'; setViewContainers('timeline'); renderTimelineView()
 })
 $$('.sortable').forEach(th => th.addEventListener('click', () => {
   const k = th.dataset.sort
@@ -482,14 +714,55 @@ $$('.status-chip').forEach(chip => chip.addEventListener('click', () => {
   $$('.status-chip').forEach(c => c.classList.remove('active'))
   chip.classList.add('active')
   state.filters.status = chip.dataset.status
-  state.listPage = 1; applyFiltersAndRender()
+  state.listPage = 1; applyFiltersAndRender(); renderActiveFilterChips()
 }))
 $('#filterPriority').addEventListener('change', () => {
-  state.filters.priority = $('#filterPriority').value; state.listPage=1; applyFiltersAndRender()
+  state.filters.priority = $('#filterPriority').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
 })
 $('#filterTeam').addEventListener('change', () => {
-  state.filters.teamId = $('#filterTeam').value; state.listPage=1; applyFiltersAndRender()
+  state.filters.teamId = $('#filterTeam').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
 })
+$('#filterCanal').addEventListener('change', () => {
+  state.filters.canal = $('#filterCanal').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
+})
+$('#filterUser').addEventListener('change', () => {
+  state.filters.userId = $('#filterUser').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
+})
+$('#filterDeadline').addEventListener('change', () => {
+  state.filters.deadline = $('#filterDeadline').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
+})
+
+function renderActiveFilterChips() {
+  const wrap = $('#activeFilterChips')
+  if (!wrap) return
+  const chips = []
+  const { status, priority, teamId, canal, userId, deadline } = state.filters
+  if (status)   chips.push({ label:`Status: ${STATUS_LABELS[status]||status}`,        clear() { state.filters.status='';   $$('.status-chip').forEach(c=>c.classList.toggle('active',c.dataset.status==='')) } })
+  if (priority) chips.push({ label:`Prioridade: ${PRIORITY_LABELS[priority]||priority}`, clear() { state.filters.priority='';  $('#filterPriority').value='' } })
+  if (teamId)   { const tm=state.teams.find(t=>t.id===teamId); chips.push({ label:`Equipe: ${tm?.nome||teamId}`,       clear() { state.filters.teamId='';   $('#filterTeam').value='' } }) }
+  if (canal)    chips.push({ label:`Canal: ${CANAL_LABELS[canal]||canal}`,            clear() { state.filters.canal='';    $('#filterCanal').value='' } })
+  if (userId)   { const u=state.users.find(x=>x.id===userId);  chips.push({ label:`Responsável: ${u?.nome||userId}`,  clear() { state.filters.userId='';   $('#filterUser').value='' } }) }
+  if (deadline) {
+    const DL = { today:'Vence hoje', week:'Vence esta semana', overdue:'Vencido' }
+    chips.push({ label:DL[deadline]||deadline, clear() { state.filters.deadline=''; $('#filterDeadline').value='' } })
+  }
+  if (!chips.length) { wrap.hidden=true; wrap.innerHTML=''; return }
+  wrap.hidden = false
+  wrap.innerHTML =
+    chips.map((c,i) => `<span class="active-filter-chip" data-afc="${i}">${escapeHtml(c.label)} <button class="afc-remove" title="Remover">×</button></span>`).join('') +
+    `<button class="afc-clear-all">Limpar todos</button>`
+  chips.forEach((c,i) => {
+    wrap.querySelector(`[data-afc="${i}"] .afc-remove`).addEventListener('click', () => {
+      c.clear(); state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
+    })
+  })
+  wrap.querySelector('.afc-clear-all').addEventListener('click', () => {
+    state.filters = { status:'', priority:'', teamId:'', canal:'', userId:'', deadline:'' }
+    $$('.status-chip').forEach(c=>c.classList.toggle('active',c.dataset.status===''))
+    ;['#filterPriority','#filterTeam','#filterCanal','#filterUser','#filterDeadline'].forEach(s => { const el=$(s); if(el) el.value='' })
+    state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
+  })
+}
 
 /* ── Task detail panel ─────────────────────────────────────────── */
 async function openPanel(taskId) {
@@ -517,17 +790,36 @@ function populatePanel(task) {
   titleEl.textContent    = task.titulo
   titleEl.contentEditable = isAdmin() ? 'plaintext-only' : 'false'
 
-  $('#panelPriority').value    = task.prioridade || 'MEDIA'
-  $('#panelTipo').value        = task.tipo_tarefa || ''
-  $('#panelStartDate').value   = toDateInput(task.data_inicio_planejado)
-  $('#panelDueDate').value     = toDateInput(task.data_fim_planejado)
-  $('#panelSolicitante').value = task.solicitante || ''
-  $('#panelDescricao').value   = task.descricao || ''
+  $('#panelPriority').value       = task.prioridade || 'MEDIA'
+  $('#panelCanal').value          = task.canal || ''
+  $('#panelTipo').value           = task.tipo_tarefa || ''
+  $('#panelStartDate').value      = toDateInput(task.data_inicio_planejado)
+  $('#panelDueDate').value        = toDateInput(task.data_fim_planejado)
+  $('#panelSolicitante').value    = task.solicitante || ''
+  $('#panelDescricao').value      = task.descricao || ''
+  $('#panelHoraPublicacao').value = task.hora_publicacao || ''
+  $('#panelProductionDays').value = task.production_days || ''
+
+  // Custom link fields with open buttons
+  const gdriveVal   = task.link_gdrive   || ''
+  const frameioVal  = task.link_frameio  || ''
+  $('#panelGdrive').value   = gdriveVal
+  $('#panelFrameio').value  = frameioVal
+  const gdriveOpen  = $('#panelGdriveOpen')
+  const frameioOpen = $('#panelFrameioOpen')
+  if (gdriveVal)  { gdriveOpen.href  = gdriveVal;  gdriveOpen.hidden  = false }
+  else            { gdriveOpen.hidden  = true }
+  if (frameioVal) { frameioOpen.href = frameioVal; frameioOpen.hidden = false }
+  else            { frameioOpen.hidden = true }
 
   const editable = isAdmin()
-  ;['#panelPriority','#panelTipo','#panelStartDate','#panelDueDate','#panelSolicitante','#panelDescricao']
+  ;['#panelPriority','#panelCanal','#panelTipo','#panelStartDate','#panelDueDate',
+    '#panelSolicitante','#panelDescricao','#panelHoraPublicacao','#panelProductionDays',
+    '#panelGdrive','#panelFrameio']
     .forEach(sel => $(sel).disabled = !editable)
   $('#panelDeleteBtn').hidden = !editable
+  const addWrap = $('#checklistAddWrap')
+  if (addWrap) addWrap.hidden = !editable
 
   const assignees = (task.assignments||[]).filter(a=>a.user)
   $('#panelAssignees').innerHTML = assignees.length
@@ -540,6 +832,8 @@ function populatePanel(task) {
       }).join('')
     : '<span class="no-assignees">Sem responsáveis</span>'
 
+  renderChecklist(task.checklist || [], editable)
+  renderVoteBtn(task.votes || [])
   renderComments(task.comments||[])
 }
 function renderComments(comments) {
@@ -600,6 +894,9 @@ $('#panelStatus').addEventListener('change', async () => {
     if (task2) $('#panelStatus').value = task2.status
   }
 })
+$('#panelCanal').addEventListener('change', () => {
+  if (isAdmin()) patchCurrentTask({ canal: $('#panelCanal').value || undefined })
+})
 ;[['#panelTipo','tipo_tarefa'],['#panelSolicitante','solicitante']].forEach(([sel,key]) => {
   $(sel).addEventListener('blur', () => { if (isAdmin()) patchCurrentTask({ [key]: $(sel).value.trim()||undefined }) })
 })
@@ -608,6 +905,28 @@ $('#panelStatus').addEventListener('change', async () => {
 })
 $('#panelDescricao').addEventListener('blur', () => {
   if (isAdmin()) patchCurrentTask({ descricao: $('#panelDescricao').value.trim()||undefined })
+})
+$('#panelHoraPublicacao').addEventListener('blur', () => {
+  if (isAdmin()) patchCurrentTask({ hora_publicacao: $('#panelHoraPublicacao').value.trim()||null })
+})
+$('#panelProductionDays').addEventListener('blur', () => {
+  if (!isAdmin()) return
+  const days = parseInt($('#panelProductionDays').value)
+  patchCurrentTask({ production_days: isNaN(days) ? null : days })
+})
+$('#panelGdrive').addEventListener('blur', () => {
+  if (!isAdmin()) return
+  const val = $('#panelGdrive').value.trim()
+  patchCurrentTask({ link_gdrive: val || null })
+  const btn = $('#panelGdriveOpen')
+  if (btn) { if (val) { btn.href = val; btn.hidden = false } else btn.hidden = true }
+})
+$('#panelFrameio').addEventListener('blur', () => {
+  if (!isAdmin()) return
+  const val = $('#panelFrameio').value.trim()
+  patchCurrentTask({ link_frameio: val || null })
+  const btn = $('#panelFrameioOpen')
+  if (btn) { if (val) { btn.href = val; btn.hidden = false } else btn.hidden = true }
 })
 
 /* Panel close + delete */
@@ -641,7 +960,7 @@ $('#commentInput').addEventListener('keydown', e => { if (e.key==='Enter' && e.c
 /* ── New task dialog ───────────────────────────────────────────── */
 $('#newTaskBtn').addEventListener('click', async () => {
   $('#taskFormError').hidden = true
-  $('#tTitulo').value=''; $('#tDescricao').value=''; $('#tPrioridade').value='MEDIA'; $('#tPrazo').value=''
+  $('#tTitulo').value=''; $('#tDescricao').value=''; $('#tPrioridade').value='MEDIA'; $('#tCanal').value=''; $('#tPrazo').value=''
   try {
     if (!state.teams.length) state.teams = await api('/teams')
     if (!state.users.length) state.users  = await api('/users')
@@ -653,15 +972,29 @@ $('#newTaskBtn').addEventListener('click', async () => {
   $('#taskDialog').showModal()
 })
 $('#cancelTaskBtn').addEventListener('click', () => $('#taskDialog').close())
+function calcAutoDeadline() {
+  const start = $('#tStartDate').value
+  const days  = parseInt($('#tProductionDays').value)
+  if (start && days > 0) {
+    const d = new Date(start); d.setDate(d.getDate() + days)
+    $('#tPrazo').value = d.toISOString().slice(0,10)
+  }
+}
+$('#tStartDate').addEventListener('change', calcAutoDeadline)
+$('#tProductionDays').addEventListener('input', calcAutoDeadline)
 $('#taskForm').addEventListener('submit', async e => {
   e.preventDefault()
+  const _prodDays = parseInt($('#tProductionDays').value)
   const body = {
-    titulo:            $('#tTitulo').value.trim(),
-    descricao:         $('#tDescricao').value.trim()||undefined,
-    prioridade:        $('#tPrioridade').value,
-    data_fim_planejado: $('#tPrazo').value||undefined,
-    team_ids:          [$('#tTeam').value],
-    user_ids:          Array.from($('#tUsers').selectedOptions).map(o=>o.value),
+    titulo:               $('#tTitulo').value.trim(),
+    descricao:            $('#tDescricao').value.trim()||undefined,
+    prioridade:           $('#tPrioridade').value,
+    canal:                $('#tCanal').value||undefined,
+    data_inicio_planejado: $('#tStartDate').value||undefined,
+    data_fim_planejado:   $('#tPrazo').value||undefined,
+    production_days:      isNaN(_prodDays) ? undefined : _prodDays,
+    team_ids:             [$('#tTeam').value],
+    user_ids:             Array.from($('#tUsers').selectedOptions).map(o=>o.value),
   }
   try {
     await api('/tasks',{ method:'POST', body:JSON.stringify(body) })
@@ -1040,6 +1373,286 @@ document.addEventListener('keydown', e => {
   if (e.key==='Escape' && !$('#taskDetailOverlay').hidden) closePanel()
   if (e.key==='Escape' && !$('#teamDetailOverlay').hidden) closeTeamPanel()
 })
+
+/* ── Gallery view ──────────────────────────────────────────────── */
+function renderGalleryView() {
+  const grid = $('#galleryGrid')
+  if (!grid) return
+  const tasks = getFilteredTasks()
+  if (!tasks.length) {
+    const hasFilters = Object.values(state.filters).some(v => v)
+    grid.innerHTML = `<div class="timeline-empty">${hasFilters ? 'Nenhuma tarefa para estes filtros.' : 'Nenhuma tarefa encontrada.'}</div>`
+    return
+  }
+  grid.innerHTML = tasks.map(t => {
+    const canalColor = t.canal ? (CANAL_COLORS[t.canal] || '#6b7280') : '#6b7280'
+    const voteN    = (t.votes || []).length
+    const commentN = (t.comments || []).length
+    const avatars  = (t.assignments || []).filter(a => a.user).slice(0, 3).map(a => {
+      const n = a.user.nome || '?'
+      return `<span class="avatar-chip" style="background:${getAvatarColor(n)};width:20px;height:20px;font-size:.55rem" title="${escapeHtml(n)}">${getInitials(n)}</span>`
+    }).join('')
+    return `<div class="gallery-card" data-id="${t.id}">
+      <div class="gallery-card-top" style="background:${canalColor}22;border-color:${canalColor}44">
+        ${t.canal ? `<span class="gallery-card-canal" style="color:${canalColor}">${CANAL_LABELS[t.canal]||t.canal}</span>` : '<span class="gallery-card-canal" style="color:var(--text-dim)">—</span>'}
+        ${statusBadge(t.status)}
+      </div>
+      <div class="gallery-card-body">
+        <div class="gallery-card-title">${escapeHtml(t.titulo)}</div>
+        <div class="gallery-card-chips">
+          ${priorityChip(t.prioridade)}
+          ${deadlineChip(t.data_fim_planejado)}
+        </div>
+        ${t.descricao ? `<div class="gallery-card-meta">${escapeHtml(t.descricao.slice(0,80))}${t.descricao.length>80?'…':''}</div>` : ''}
+      </div>
+      <div class="gallery-card-footer">
+        <div style="display:flex;gap:4px">${avatars}</div>
+        <div class="gallery-vote">
+          ${commentN ? `<span style="font-size:.7rem;color:var(--text-muted)">💬 ${commentN}</span>` : ''}
+          ${voteN    ? `<span style="font-size:.7rem;color:var(--text-muted)">❤️ ${voteN}</span>`    : ''}
+        </div>
+      </div>
+    </div>`
+  }).join('')
+  $$('.gallery-card', grid).forEach(card =>
+    card.addEventListener('click', () => openPanel(card.dataset.id))
+  )
+}
+
+/* ── Timeline view ─────────────────────────────────────────────── */
+function renderTimelineView() {
+  const wrap = $('#timelineChart')
+  if (!wrap) return
+  const tasks = getFilteredTasks().filter(t => t.data_inicio_planejado || t.data_fim_planejado)
+  if (!tasks.length) {
+    wrap.innerHTML = '<div class="timeline-empty">Nenhuma tarefa com datas planejadas para exibir na linha do tempo.</div>'
+    return
+  }
+  const allDates = tasks.flatMap(t => [
+    t.data_inicio_planejado ? new Date(t.data_inicio_planejado) : null,
+    t.data_fim_planejado    ? new Date(t.data_fim_planejado)    : null,
+  ]).filter(Boolean)
+  let minDate = new Date(Math.min(...allDates.map(d => d.getTime())))
+  let maxDate = new Date(Math.max(...allDates.map(d => d.getTime())))
+  minDate.setDate(minDate.getDate() - 3)
+  maxDate.setDate(maxDate.getDate() + 3)
+  const totalMs = maxDate - minDate
+  if (totalMs <= 0) { wrap.innerHTML = '<div class="timeline-empty">Intervalo de datas inválido.</div>'; return }
+  const totalDays = Math.round(totalMs / 86400000)
+  const cellDays  = totalDays <= 30 ? 1 : totalDays <= 90 ? 7 : 30
+  const headers = []
+  const cur = new Date(minDate)
+  while (cur <= maxDate) { headers.push(new Date(cur)); cur.setDate(cur.getDate() + cellDays) }
+  const today      = new Date()
+  const todayPct   = ((today - minDate) / totalMs) * 100
+  const showToday  = today >= minDate && today <= maxDate
+  function dateToPct(d) {
+    if (!d) return null
+    return Math.min(100, Math.max(0, ((new Date(d) - minDate) / totalMs) * 100))
+  }
+  const headerHtml = `<div class="timeline-header">
+    ${headers.map(h => `<div class="timeline-header-cell">${h.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</div>`).join('')}
+  </div>`
+  const rowsHtml = tasks.map(t => {
+    const start = t.data_inicio_planejado || t.data_fim_planejado
+    const end   = t.data_fim_planejado    || t.data_inicio_planejado
+    const left  = dateToPct(start)
+    const right = dateToPct(end)
+    const width = Math.max(0.8, right - left)
+    const canalColor = t.canal ? (CANAL_COLORS[t.canal] || '#6366f1') : '#6366f1'
+    return `<div class="timeline-row" data-id="${t.id}">
+      <div class="timeline-label" title="${escapeHtml(t.titulo)}">${escapeHtml(t.titulo.slice(0,30))}${t.titulo.length>30?'…':''}</div>
+      <div class="timeline-track">
+        <div class="timeline-bar" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%;background:${canalColor}cc" title="${escapeHtml(t.titulo)}">
+          <span style="font-size:.65rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;padding:0 4px">${PRIORITY_LABELS[t.prioridade]||''}</span>
+        </div>
+        ${showToday ? `<div class="timeline-today" style="left:${todayPct.toFixed(2)}%"></div>` : ''}
+      </div>
+    </div>`
+  }).join('')
+  wrap.innerHTML = headerHtml + rowsHtml
+  $$('.timeline-row', wrap).forEach(row => row.addEventListener('click', () => openPanel(row.dataset.id)))
+}
+// Timeline zoom (simple: reload with a note — full zoom requires more state)
+$('#timelineZoomIn')?.addEventListener('click',  () => renderTimelineView())
+$('#timelineZoomOut')?.addEventListener('click', () => renderTimelineView())
+
+/* ── Checklist ─────────────────────────────────────────────────── */
+function renderChecklist(items, editable) {
+  const list    = $('#panelChecklist')
+  const countEl = $('#checklistCount')
+  const progWrap = $('#checklistProgressWrap')
+  const progFill = $('#checklistProgressFill')
+  if (!list) return
+  const done  = items.filter(i => i.done).length
+  const total = items.length
+  if (countEl) countEl.textContent = total || ''
+  if (progWrap) {
+    progWrap.hidden = total === 0
+    if (progFill) progFill.style.width = total > 0 ? `${Math.round((done/total)*100)}%` : '0%'
+  }
+  if (!total) { list.innerHTML = '<p class="muted" style="font-size:.8rem">Sem itens.</p>'; return }
+  list.innerHTML = items.map(item => {
+    const dl = item.deadline ? new Date(item.deadline).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}) : ''
+    return `<div class="checklist-item ${item.done?'done':''}" data-item-id="${item.id}">
+      <button class="checklist-check${item.done?' checked':''}" data-check="${item.id}" title="${item.done?'Desmarcar':'Marcar como feito'}">
+        ${item.done?'✓':''}
+      </button>
+      <span class="checklist-text ${item.done?'done-text':''}">${escapeHtml(item.texto)}</span>
+      ${dl ? `<span class="checklist-meta">📅 ${dl}</span>` : ''}
+      ${editable ? `<button class="checklist-del" data-del-item="${item.id}" title="Remover">×</button>` : ''}
+    </div>`
+  }).join('')
+  $$('.checklist-check', list).forEach(btn =>
+    btn.addEventListener('click', e => {
+      e.stopPropagation()
+      const itemId = btn.dataset.check
+      const item   = items.find(i => i.id === itemId)
+      if (item) toggleChecklistItem(itemId, !item.done)
+    })
+  )
+  if (editable) {
+    $$('.checklist-del', list).forEach(btn =>
+      btn.addEventListener('click', e => { e.stopPropagation(); deleteChecklistItem(btn.dataset.delItem) })
+    )
+  }
+}
+async function addChecklistItem() {
+  const input   = $('#checklistInput')
+  const dlInput = $('#checklistDeadline')
+  const texto   = input?.value.trim()
+  if (!texto) return
+  try {
+    await api('/tasks/'+state.currentTaskId+'/checklist', {
+      method:'POST',
+      body: JSON.stringify({ texto, deadline: dlInput?.value||undefined }),
+    })
+    input.value = ''; if (dlInput) dlInput.value = ''
+    const task = await api('/tasks/'+state.currentTaskId)
+    renderChecklist(task.checklist||[], true)
+    toast('Item adicionado.','success')
+  } catch (err) { toast(err.message,'error') }
+}
+async function toggleChecklistItem(itemId, done) {
+  try {
+    await api('/tasks/'+state.currentTaskId+'/checklist/'+itemId, {
+      method:'PATCH', body:JSON.stringify({ done }),
+    })
+    const task = await api('/tasks/'+state.currentTaskId)
+    renderChecklist(task.checklist||[], isAdmin())
+  } catch (err) { toast(err.message,'error') }
+}
+async function deleteChecklistItem(itemId) {
+  try {
+    await api('/tasks/'+state.currentTaskId+'/checklist/'+itemId, { method:'DELETE' })
+    const task = await api('/tasks/'+state.currentTaskId)
+    renderChecklist(task.checklist||[], true)
+    toast('Item removido.','success')
+  } catch (err) { toast(err.message,'error') }
+}
+$('#checklistAddBtn')?.addEventListener('click', addChecklistItem)
+$('#checklistInput')?.addEventListener('keydown', e => { if (e.key==='Enter') { e.preventDefault(); addChecklistItem() } })
+
+/* ── Votes ─────────────────────────────────────────────────────── */
+function renderVoteBtn(votes) {
+  const btn   = $('#panelVoteBtn')
+  const count = $('#panelVoteCount')
+  if (!btn) return
+  const userId = state.user?.id || state.user?.sub
+  const voted  = votes.some(v => v.user_id === userId)
+  if (count) count.textContent = votes.length
+  btn.classList.toggle('voted', voted)
+  btn.title = voted ? 'Remover voto' : 'Votar nesta tarefa'
+}
+async function toggleVote(taskId) {
+  try {
+    const result = await api('/tasks/'+taskId+'/votes', { method:'POST' })
+    const task = await api('/tasks/'+taskId)
+    renderVoteBtn(task.votes||[])
+    toast(result.voted ? 'Voto registrado!' : 'Voto removido.', 'success')
+  } catch (err) { toast(err.message,'error') }
+}
+$('#panelVoteBtn')?.addEventListener('click', () => {
+  if (state.currentTaskId) toggleVote(state.currentTaskId)
+})
+
+/* ── Attachment URL ────────────────────────────────────────────── */
+$('#toggleAttachBtn')?.addEventListener('click', () => {
+  const wrap = $('#attachUrlWrap')
+  if (wrap) { wrap.hidden = !wrap.hidden; if (!wrap.hidden) $('#attachInput')?.focus() }
+})
+$('#attachBtn')?.addEventListener('click', async () => {
+  const url  = $('#attachInput')?.value.trim()
+  const task = state.currentTaskId
+  if (!url || !task) return
+  try {
+    await api('/tasks/'+task+'/comments', {
+      method:'POST',
+      body: JSON.stringify({ texto: `📎 ${url}` }),
+    })
+    $('#attachInput').value = ''; $('#attachUrlWrap').hidden = true
+    const updated = await api('/tasks/'+task)
+    renderComments(updated.comments||[])
+    toast('Link anexado.','success')
+  } catch (err) { toast(err.message,'error') }
+})
+
+/* ── Briefings ─────────────────────────────────────────────────── */
+async function loadBriefings() {
+  const list = $('#briefingsList')
+  if (!list) return
+  list.innerHTML = '<p class="muted">Carregando…</p>'
+  try {
+    const data = await api('/briefing')
+    renderBriefings(data)
+  } catch (err) { list.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>` }
+}
+function renderBriefings(briefings) {
+  const list = $('#briefingsList')
+  if (!list) return
+  if (!briefings.length) {
+    list.innerHTML = '<p class="muted">Nenhum briefing recebido ainda. Compartilhe o link público com os solicitantes.</p>'
+    return
+  }
+  list.innerHTML = briefings.map(b => {
+    const dt = b.created_at ? new Date(b.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'
+    const isPendente = b.status === 'PENDENTE'
+    return `<div class="briefing-item">
+      <div class="briefing-item-title">${escapeHtml(b.nome)} · <span style="color:var(--text-muted);font-size:.8rem">${escapeHtml(b.email)}</span></div>
+      <div class="briefing-item-meta">
+        <span class="briefing-status-badge ${b.status}">${b.status}</span>
+        <span>${escapeHtml(b.tipo)}</span>
+        ${b.canal ? `<span>${escapeHtml(b.canal)}</span>` : ''}
+        ${b.data_evento ? `<span>📅 ${new Date(b.data_evento).toLocaleDateString('pt-BR')}</span>` : ''}
+        <span style="color:var(--text-dim)">${dt}</span>
+      </div>
+      <div class="briefing-item-desc">${escapeHtml(b.descricao.slice(0,200))}${b.descricao.length>200?'…':''}</div>
+      ${isPendente ? `<div class="briefing-actions">
+        <button class="btn-primary btn-sm" data-bf-approve="${b.id}">✓ Converter em tarefa</button>
+        <button class="btn-ghost btn-sm" data-bf-reject="${b.id}">✕ Rejeitar</button>
+      </div>` : ''}
+    </div>`
+  }).join('')
+  $$('[data-bf-approve]', list).forEach(btn =>
+    btn.addEventListener('click', async () => {
+      if (!await confirmDialog('Converter este briefing em tarefa? O status será marcado como CONVERTIDO.')) return
+      try {
+        await api('/briefing/'+btn.dataset.bfApprove, { method:'PATCH', body:JSON.stringify({ status:'CONVERTIDO' }) })
+        toast('Briefing convertido.','success'); loadBriefings()
+      } catch (err) { toast(err.message,'error') }
+    })
+  )
+  $$('[data-bf-reject]', list).forEach(btn =>
+    btn.addEventListener('click', async () => {
+      if (!await confirmDialog('Rejeitar este briefing?')) return
+      try {
+        await api('/briefing/'+btn.dataset.bfReject, { method:'PATCH', body:JSON.stringify({ status:'REJEITADO' }) })
+        toast('Briefing rejeitado.','success'); loadBriefings()
+      } catch (err) { toast(err.message,'error') }
+    })
+  )
+}
+$('#refreshBriefingsBtn')?.addEventListener('click', loadBriefings)
 
 /* ── Init ──────────────────────────────────────────────────────── */
 if (state.token && state.user) showApp()

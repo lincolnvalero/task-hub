@@ -33,6 +33,22 @@ const reviewApplicationSchema = z.object({
   igreja: z.string().max(100).optional(),
 })
 
+const briefingSchema = z.object({
+  nome:               z.string().min(2).max(200),
+  email:              z.string().email(),
+  tipo:               z.string().min(1).max(100),
+  canal:              z.string().max(50).optional(),
+  descricao:          z.string().min(10).max(3000),
+  data_evento:        z.coerce.date().optional(),
+  consentimento_lgpd: z.literal(true, {
+    error: 'É necessário aceitar a política de dados para enviar o briefing.',
+  }),
+})
+
+const briefingReviewSchema = z.object({
+  status: z.enum(['CONVERTIDO', 'REJEITADO']),
+})
+
 export async function externalRoutes(app: FastifyInstance) {
   // POST /demands — público, líderes enviam solicitações
   app.post('/demands', async (request, reply) => {
@@ -140,4 +156,65 @@ export async function externalRoutes(app: FastifyInstance) {
       return reply.send({ message: `Candidatura ${body.data.status.toLowerCase()} com sucesso.` })
     }
   )
+
+  // POST /briefing — público, formulário de briefing para equipes externas (LGPD: consentimento explícito)
+  app.post('/briefing', async (request, reply) => {
+    const body = briefingSchema.safeParse(request.body)
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
+
+    const { data: row, error } = await supabase
+      .from('briefing_requests')
+      .insert({
+        id:          randomUUID(),
+        nome:        body.data.nome,
+        email:       body.data.email,
+        tipo:        body.data.tipo,
+        canal:       body.data.canal ?? null,
+        descricao:   body.data.descricao,
+        data_evento: body.data.data_evento?.toISOString().slice(0, 10) ?? null,
+        status:      'PENDENTE',
+      })
+      .select('id')
+      .single()
+    if (error) return reply.status(500).send({ error: error.message })
+
+    return reply.status(201).send({
+      message: 'Briefing recebido! Nossa equipe entrará em contato em breve.',
+      id: row.id,
+    })
+  })
+
+  // GET /briefing — admin: listar todos os briefings
+  app.get('/briefing', { preHandler: requireAdmin }, async (_request, reply) => {
+    const { data, error } = await supabase
+      .from('briefing_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (error) return reply.status(500).send({ error: error.message })
+    return reply.send(data ?? [])
+  })
+
+  // PATCH /briefing/:id — admin: atualizar status do briefing
+  app.patch<{ Params: { id: string } }>('/briefing/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const body = briefingReviewSchema.safeParse(request.body)
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
+
+    const { data: existing } = await supabase
+      .from('briefing_requests')
+      .select('id, status')
+      .eq('id', request.params.id)
+      .maybeSingle()
+    if (!existing) return reply.status(404).send({ error: 'Briefing não encontrado.' })
+    if (existing.status !== 'PENDENTE') {
+      return reply.status(422).send({ error: 'Este briefing já foi revisado.' })
+    }
+
+    const { error } = await supabase
+      .from('briefing_requests')
+      .update({ status: body.data.status })
+      .eq('id', request.params.id)
+    if (error) return reply.status(500).send({ error: error.message })
+
+    return reply.send({ message: `Briefing marcado como ${body.data.status.toLowerCase()}.` })
+  })
 }

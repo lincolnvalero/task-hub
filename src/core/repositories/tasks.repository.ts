@@ -6,6 +6,7 @@ export interface CreateTaskDTO {
   prioridade?: Task['prioridade']
   tipo_tarefa?: string
   solicitante?: string
+  canal?: string
   data_inicio_planejado?: Date
   data_fim_planejado?: Date
   team_ids: string[]
@@ -19,6 +20,7 @@ export interface UpdateTaskDTO {
   prioridade?: Task['prioridade']
   tipo_tarefa?: string
   solicitante?: string
+  canal?: string
   data_inicio_planejado?: Date
   data_fim_planejado?: Date
   data_conclusao_efetiva?: Date

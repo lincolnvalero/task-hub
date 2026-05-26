@@ -10,8 +10,9 @@ import type {
 } from '../../../core/repositories/tasks.repository'
 import type { Task, TaskStatus } from '../../../core/entities/task.entity'
 
-const TASK_SELECT = `
-  id, titulo, descricao, status, prioridade, tipo_tarefa, solicitante,
+const TASK_SELECT_BASE = `
+  id, titulo, descricao, status, prioridade, tipo_tarefa, solicitante, canal,
+  link_gdrive, link_frameio, hora_publicacao, production_days,
   data_inicio_planejado, data_fim_planejado, data_conclusao_efetiva,
   created_at, updated_at, deleted_at,
   assignments:task_assignments(
@@ -20,6 +21,11 @@ const TASK_SELECT = `
     team:teams(nome)
   ),
   comments:task_comments(id, texto, created_at, user:users(nome))
+`
+
+const TASK_SELECT_FULL = TASK_SELECT_BASE + `,
+  checklist:task_checklist_items(id, texto, done, deadline, assignee_id),
+  votes:task_votes(user_id)
 `
 
 export class PrismaTasksRepository implements ITasksRepository {
@@ -33,6 +39,7 @@ export class PrismaTasksRepository implements ITasksRepository {
         prioridade:            data.prioridade ?? 'MEDIA',
         tipo_tarefa:           data.tipo_tarefa,
         solicitante:           data.solicitante,
+        canal:                 data.canal,
         data_inicio_planejado: data.data_inicio_planejado?.toISOString(),
         data_fim_planejado:    data.data_fim_planejado?.toISOString(),
       })
@@ -57,7 +64,7 @@ export class PrismaTasksRepository implements ITasksRepository {
   async findById(id: string): Promise<TaskWithAssignments | null> {
     const { data, error } = await supabase
       .from('tasks')
-      .select(TASK_SELECT)
+      .select(TASK_SELECT_FULL)
       .eq('id', id)
       .is('deleted_at', null)
       .maybeSingle()
@@ -91,7 +98,7 @@ export class PrismaTasksRepository implements ITasksRepository {
   async listKanban(): Promise<KanbanBoard> {
     const { data, error } = await supabase
       .from('tasks')
-      .select(TASK_SELECT)
+      .select(TASK_SELECT_BASE)
       .is('deleted_at', null)
       .order('prioridade', { ascending: false })
       .order('data_fim_planejado', { ascending: true })
@@ -143,5 +150,59 @@ export class PrismaTasksRepository implements ITasksRepository {
       map.set(key, entry)
     }
     return Array.from(map.values()).map((v) => ({ team: v.nome, total: v.total }))
+  }
+
+  async addChecklistItem(task_id: string, data: { texto: string; deadline?: string; assignee_id?: string }): Promise<void> {
+    const { error } = await supabase.from('task_checklist_items').insert({
+      id:          randomUUID(),
+      task_id,
+      texto:       data.texto,
+      done:        false,
+      deadline:    data.deadline ?? null,
+      assignee_id: data.assignee_id ?? null,
+    })
+    if (error) throw error
+  }
+
+  async updateChecklistItem(item_id: string, data: { texto?: string; done?: boolean; deadline?: string }): Promise<void> {
+    const payload: Record<string, unknown> = { ...data, updated_at: new Date().toISOString() }
+    const { error } = await supabase
+      .from('task_checklist_items')
+      .update(payload)
+      .eq('id', item_id)
+    if (error) throw error
+  }
+
+  async deleteChecklistItem(item_id: string): Promise<void> {
+    const { error } = await supabase
+      .from('task_checklist_items')
+      .delete()
+      .eq('id', item_id)
+    if (error) throw error
+  }
+
+  async toggleVote(task_id: string, user_id: string): Promise<{ voted: boolean }> {
+    const { data: existing } = await supabase
+      .from('task_votes')
+      .select('id')
+      .eq('task_id', task_id)
+      .eq('user_id', user_id)
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('task_votes')
+        .delete()
+        .eq('task_id', task_id)
+        .eq('user_id', user_id)
+      if (error) throw error
+      return { voted: false }
+    } else {
+      const { error } = await supabase
+        .from('task_votes')
+        .insert({ id: randomUUID(), task_id, user_id })
+      if (error) throw error
+      return { voted: true }
+    }
   }
 }

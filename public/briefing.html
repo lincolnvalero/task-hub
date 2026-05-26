@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Briefing — Task-Hub IAP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --primary:       #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-dim:   rgba(99,102,241,0.12);
+      --bg:            #0d0f14;
+      --surface:       #161820;
+      --surface-2:     #1e2028;
+      --border:        #2d3040;
+      --text:          #e2e4ee;
+      --text-muted:    #7b8194;
+      --text-dim:      #4a4f63;
+      --success:       #22c55e;
+      --danger:        #ef4444;
+      --radius:        8px;
+      --radius-lg:     12px;
+      --shadow:        0 4px 24px rgba(0,0,0,0.35);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 48px 20px 64px;
+      background-image: radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.07) 0%, transparent 65%);
+    }
+
+    /* ── Header ── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .page-logo {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--primary), #8b5cf6);
+      border-radius: 14px;
+      display: grid; place-items: center;
+      font-size: 1.4rem; font-weight: 700; color: #fff;
+      margin: 0 auto 16px;
+      box-shadow: 0 8px 28px rgba(99,102,241,0.35);
+    }
+    .page-header h1 {
+      margin: 0 0 6px;
+      font-size: 1.7rem;
+      font-weight: 700;
+    }
+    .page-header p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      max-width: 440px;
+    }
+
+    /* ── Card ── */
+    .form-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 36px 40px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: var(--shadow);
+    }
+
+    /* ── Form fields ── */
+    .form-row { margin-bottom: 20px; }
+    .form-row.two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 480px) {
+      .form-card { padding: 28px 20px; }
+      .form-row.two-col { grid-template-columns: 1fr; }
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 7px;
+    }
+    label .required {
+      color: var(--danger);
+      margin-left: 2px;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 10px 13px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: none;
+    }
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="date"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-dim);
+    }
+    input::placeholder, textarea::placeholder {
+      color: var(--text-dim);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 110px;
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237b8194' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+      cursor: pointer;
+    }
+
+    /* ── LGPD consent ── */
+    .lgpd-row {
+      background: rgba(99,102,241,0.06);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-top: 4px;
+      margin-bottom: 24px;
+    }
+    .lgpd-checkbox-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .lgpd-checkbox-wrap input[type="checkbox"] {
+      width: 17px; height: 17px;
+      min-width: 17px;
+      margin-top: 1px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .lgpd-text {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .lgpd-text strong { color: var(--text); }
+    .lgpd-caption {
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    /* ── Submit button ── */
+    .btn-submit {
+      width: 100%;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s, transform 0.1s;
+    }
+    .btn-submit:hover { background: var(--primary-hover); }
+    .btn-submit:active { transform: scale(0.99); }
+    .btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Feedback messages ── */
+    .feedback {
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      font-size: 0.875rem;
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+    .feedback.show { display: flex; }
+    .feedback-success {
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.3);
+      color: #4ade80;
+    }
+    .feedback-error {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #f87171;
+    }
+    .feedback svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Section divider ── */
+    .section-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin: 28px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Footer ── */
+    .page-footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+    .page-footer a { color: var(--text-muted); text-decoration: underline; }
+    .page-footer a:hover { color: var(--text); }
+
+    /* ── Success state ── */
+    .success-screen {
+      text-align: center;
+      padding: 16px 0 8px;
+      display: none;
+    }
+    .success-screen.show { display: block; }
+    .success-icon {
+      width: 64px; height: 64px;
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.3);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      margin: 0 auto 20px;
+    }
+    .success-screen h2 {
+      margin: 0 0 8px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #4ade80;
+    }
+    .success-screen p {
+      margin: 0 0 24px;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+    .btn-new {
+      display: inline-block;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 9px 20px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s;
+    }
+    .btn-new:hover { border-color: var(--primary); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="page-logo">T</div>
+    <h1>Solicitar Briefing</h1>
+    <p>Preencha o formulário abaixo para enviar uma solicitação de criação de conteúdo para a equipe de comunicação.</p>
+  </div>
+
+  <!-- Form card -->
+  <div class="form-card">
+
+    <!-- Feedback messages -->
+    <div id="feedbackError" class="feedback feedback-error" role="alert">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span id="feedbackErrorText">Ocorreu um erro. Tente novamente.</span>
+    </div>
+
+    <!-- Success screen (shown after submit) -->
+    <div id="successScreen" class="success-screen">
+      <div class="success-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="28" height="28">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h2>Briefing enviado!</h2>
+      <p>Nossa equipe de comunicação recebeu sua solicitação e entrará em contato em breve.</p>
+      <button class="btn-new" id="newBriefingBtn">Enviar outro briefing</button>
+    </div>
+
+    <!-- Form -->
+    <form id="briefingForm" novalidate>
+
+      <div class="section-title">Informações de contato</div>
+
+      <div class="form-row two-col">
+        <div>
+          <label for="fNome">Nome completo <span class="required">*</span></label>
+          <input type="text" id="fNome" name="nome" placeholder="Seu nome" required maxlength="200" autocomplete="name" />
+        </div>
+        <div>
+          <label for="fEmail">E-mail <span class="required">*</span></label>
+          <input type="email" id="fEmail" name="email" placeholder="seu@email.com" required maxlength="200" autocomplete="email" />
+        </div>
+      </div>
+
+      <div class="section-title">Detalhes do conteúdo</div>
+
+      <div class="form-row two-col">
+        <div>
+          <label for="fTipo">Tipo de conteúdo <span class="required">*</span></label>
+          <select id="fTipo" name="tipo" required>
+            <option value="">Selecione...</option>
+            <option value="Post">Post</option>
+            <option value="Reel">Reel</option>
+            <option value="Story">Story</option>
+            <option value="Vídeo">Vídeo</option>
+            <option value="Banner">Banner</option>
+            <option value="E-mail marketing">E-mail marketing</option>
+            <option value="Site / Landing page">Site / Landing page</option>
+            <option value="Apresentação">Apresentação</option>
+            <option value="Roteiro">Roteiro</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+        <div>
+          <label for="fCanal">Canal / Plataforma</label>
+          <select id="fCanal" name="canal">
+            <option value="">Não especificado</option>
+            <option value="INSTAGRAM">Instagram</option>
+            <option value="YOUTUBE">YouTube</option>
+            <option value="TIKTOK">TikTok</option>
+            <option value="LINKEDIN">LinkedIn</option>
+            <option value="WHATSAPP">WhatsApp</option>
+            <option value="SITE">Site</option>
+            <option value="EMAIL">E-mail</option>
+            <option value="EVENTO">Evento</option>
+            <option value="APRESENTACAO">Apresentação</option>
+            <option value="OUTRO">Outro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label for="fDescricao">Descrição / Objetivo <span class="required">*</span></label>
+        <textarea id="fDescricao" name="descricao" placeholder="Descreva o que precisa ser criado, o objetivo do conteúdo, referências, tom de voz, público-alvo..." required minlength="10" maxlength="3000"></textarea>
+      </div>
+
+      <div class="form-row">
+        <label for="fDataEvento">Data do evento / publicação desejada</label>
+        <input type="date" id="fDataEvento" name="data_evento" />
+      </div>
+
+      <!-- LGPD Consent -->
+      <div class="lgpd-row">
+        <label class="lgpd-checkbox-wrap" for="fLgpd">
+          <input type="checkbox" id="fLgpd" name="consentimento_lgpd" required />
+          <span class="lgpd-text">
+            <strong>Consentimento de uso de dados (LGPD)</strong><br>
+            Autorizo o uso dos meus dados pessoais (nome, e-mail) exclusivamente para processamento desta solicitação de briefing pela equipe de comunicação IAP SP, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).
+          </span>
+        </label>
+        <p class="lgpd-caption">
+          Seus dados não serão compartilhados com terceiros e serão utilizados apenas para fins internos de gestão de demandas. Você pode solicitar a exclusão a qualquer momento.
+        </p>
+      </div>
+
+      <button type="submit" class="btn-submit" id="submitBtn">
+        Enviar briefing
+      </button>
+    </form>
+  </div>
+
+  <!-- Footer -->
+  <div class="page-footer">
+    Equipe de Comunicação — IAP SP &nbsp;·&nbsp;
+    <a href="/">Acessar o painel</a>
+  </div>
+
+  <script>
+    const form      = document.getElementById('briefingForm')
+    const submitBtn = document.getElementById('submitBtn')
+    const errBox    = document.getElementById('feedbackError')
+    const errText   = document.getElementById('feedbackErrorText')
+    const success   = document.getElementById('successScreen')
+    const newBtn    = document.getElementById('newBriefingBtn')
+
+    function showError(msg) {
+      errText.textContent = msg
+      errBox.classList.add('show')
+      errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+    function hideError() {
+      errBox.classList.remove('show')
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      hideError()
+
+      const nome      = document.getElementById('fNome').value.trim()
+      const email     = document.getElementById('fEmail').value.trim()
+      const tipo      = document.getElementById('fTipo').value
+      const canal     = document.getElementById('fCanal').value || undefined
+      const descricao = document.getElementById('fDescricao').value.trim()
+      const dataEvt   = document.getElementById('fDataEvento').value || undefined
+      const consent   = document.getElementById('fLgpd').checked
+
+      // Client-side validation
+      if (!nome || nome.length < 2) {
+        showError('Por favor, informe seu nome completo (mínimo 2 caracteres).')
+        document.getElementById('fNome').focus()
+        return
+      }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showError('Por favor, informe um endereço de e-mail válido.')
+        document.getElementById('fEmail').focus()
+        return
+      }
+      if (!tipo) {
+        showError('Selecione o tipo de conteúdo.')
+        document.getElementById('fTipo').focus()
+        return
+      }
+      if (!descricao || descricao.length < 10) {
+        showError('A descrição deve ter pelo menos 10 caracteres.')
+        document.getElementById('fDescricao').focus()
+        return
+      }
+      if (!consent) {
+        showError('É necessário aceitar a política de dados para enviar o briefing.')
+        document.getElementById('fLgpd').focus()
+        return
+      }
+
+      // Build payload
+      const payload = {
+        nome,
+        email,
+        tipo,
+        descricao,
+        consentimento_lgpd: true,
+      }
+      if (canal)   payload.canal       = canal
+      if (dataEvt) payload.data_evento = dataEvt
+
+      submitBtn.disabled    = true
+      submitBtn.textContent = 'Enviando...'
+
+      try {
+        const res = await fetch('/briefing', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload),
+        })
+
+        const json = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          const msg = json?.error?.formErrors?.[0]
+            || (Array.isArray(json?.error) ? json.error[0] : null)
+            || json?.error
+            || 'Erro ao enviar o briefing. Tente novamente.'
+          showError(typeof msg === 'string' ? msg : JSON.stringify(msg))
+          return
+        }
+
+        // Success — hide form, show success screen
+        form.hidden    = true
+        success.classList.add('show')
+        success.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+
+      } catch (err) {
+        showError('Falha de conexão. Verifique sua internet e tente novamente.')
+      } finally {
+        submitBtn.disabled    = false
+        submitBtn.textContent = 'Enviar briefing'
+      }
+    })
+
+    // Allow submitting another briefing
+    newBtn.addEventListener('click', () => {
+      form.reset()
+      form.hidden = false
+      success.classList.remove('show')
+      hideError()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  </script>
+</body>
+</html>
