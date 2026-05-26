@@ -45,6 +45,7 @@ const state = {
   allTasks:     [],
   teams:        [],
   users:        [],
+  campaigns:    [],
   currentTaskId: null,
   filters:      { status:'', priority:'', teamId:'', canal:'', userId:'', deadline:'' },
   listSort:     { key:'data_fim_planejado', dir:'asc' },
@@ -107,6 +108,43 @@ function canalChip(c) {
   const label = CANAL_LABELS[c] || c
   return `<span class="canal-badge" style="--canal-color:${color};--canal-bg:${color}22">${label}</span>`
 }
+
+/* ── Theme & layout prefs ──────────────────────────────────────── */
+const THEME_KEY   = 'taskhub_theme'
+const SIDEBAR_KEY = 'taskhub_sidebar'
+function applyTheme(theme) {
+  if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark')
+  else document.documentElement.removeAttribute('data-theme')   // creme é o padrão
+}
+function currentTheme() {
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+}
+function toggleTheme() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark'
+  applyTheme(next)
+  localStorage.setItem(THEME_KEY, next)
+  // re-render dashboard charts com as novas cores do tema
+  if (state._dashMetrics && !$('#dashboardView')?.hidden) renderDashboard(state._dashMetrics)
+}
+function applySidebarPref() {
+  if (localStorage.getItem(SIDEBAR_KEY) === 'collapsed') $('#sidebar')?.classList.add('collapsed')
+}
+function toggleSidebarCollapse() {
+  const sb = $('#sidebar'); if (!sb) return
+  sb.classList.toggle('collapsed')
+  localStorage.setItem(SIDEBAR_KEY, sb.classList.contains('collapsed') ? 'collapsed' : 'expanded')
+}
+// Cores dos gráficos lidas dos tokens CSS (theme-aware)
+function chartColors() {
+  const cs = getComputedStyle(document.documentElement)
+  return {
+    text:  cs.getPropertyValue('--text').trim()       || '#2A2724',
+    muted: cs.getPropertyValue('--text-muted').trim()  || '#6B6359',
+    grid:  cs.getPropertyValue('--border').trim()      || '#E7E0D4',
+  }
+}
+// Aplica o tema imediatamente (evita flash)
+applyTheme(localStorage.getItem(THEME_KEY) || 'light')
 
 /* ── API ───────────────────────────────────────────────────────── */
 async function api(path, opts = {}) {
@@ -181,6 +219,8 @@ function showApp() {
   $('[data-view="dashboard"]').hidden = !isAdmin()
   const banner = $('#guestBanner')
   if (banner) banner.hidden = u.role !== 'GUEST'
+  applySidebarPref()
+  startNotifPolling()
   navigate(isAdmin() ? 'dashboard' : 'tasks')
 }
 
@@ -195,6 +235,8 @@ function navigate(view) {
   if (view === 'teams')     loadTeams()
   if (view === 'users')     loadUsers()
   if (view === 'briefings') loadBriefings()
+  if (view === 'campaigns') loadCampaigns()
+  if (view === 'map')       loadMap()
 }
 
 /* ── Auth events ───────────────────────────────────────────────── */
@@ -227,6 +269,8 @@ $('#logoutBtn').addEventListener('click', () => { clearSession(); showLogin() })
 /* ── Sidebar nav ───────────────────────────────────────────────── */
 $$('.nav-item').forEach(btn => btn.addEventListener('click', () => navigate(btn.dataset.view)))
 $('#sidebarToggle').addEventListener('click', () => $('#sidebar').classList.toggle('open'))
+$('#sidebarCollapseBtn')?.addEventListener('click', toggleSidebarCollapse)
+$('#themeToggle')?.addEventListener('click', toggleTheme)
 document.addEventListener('click', e => {
   const sb = $('#sidebar')
   if (sb && sb.classList.contains('open') && !sb.contains(e.target) && e.target !== $('#sidebarToggle'))
@@ -302,6 +346,7 @@ function renderChartStatus(tasks) {
   STATUS_ORDER.forEach(s => { counts[s] = tasks.filter(t => t.status === s).length })
   const labels = STATUS_ORDER.filter(s => counts[s] > 0)
   if (!labels.length) return
+  const C = chartColors()
   state.charts.status = new Chart(ctx, {
     type:'doughnut',
     data:{
@@ -310,7 +355,7 @@ function renderChartStatus(tasks) {
     },
     options:{
       responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ position:'bottom', labels:{ color:'#e2e4ee', padding:12, font:{family:'Inter',size:11} } } },
+      plugins:{ legend:{ position:'bottom', labels:{ color:C.text, padding:12, font:{family:'Inter',size:11} } } },
     },
   })
 }
@@ -326,6 +371,7 @@ function renderChartCanal(tasks) {
     ctx.parentElement.innerHTML = '<p class="muted" style="text-align:center;padding:2rem 0">Sem dados de canal ainda.</p>'
     return
   }
+  const C = chartColors()
   state.charts.canal = new Chart(ctx, {
     type:'bar',
     data:{
@@ -340,8 +386,8 @@ function renderChartCanal(tasks) {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ display:false } },
       scales:{
-        x:{ grid:{ color:'#2d3040' }, ticks:{ color:'#7b8194', font:{family:'Inter'} } },
-        y:{ grid:{ display:false },   ticks:{ color:'#e2e4ee', font:{family:'Inter'} } },
+        x:{ grid:{ color:C.grid }, ticks:{ color:C.muted, font:{family:'Inter'} } },
+        y:{ grid:{ display:false }, ticks:{ color:C.text, font:{family:'Inter'} } },
       },
     },
   })
@@ -360,6 +406,7 @@ function renderChartTeams(tasks) {
   })
   const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a])
   if (!labels.length) return
+  const C = chartColors()
   state.charts.teams = new Chart(ctx, {
     type:'bar',
     data:{
@@ -370,8 +417,8 @@ function renderChartTeams(tasks) {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ display:false } },
       scales:{
-        x:{ grid:{ color:'#2d3040' }, ticks:{ color:'#7b8194', font:{family:'Inter'} } },
-        y:{ grid:{ display:false },   ticks:{ color:'#e2e4ee', font:{family:'Inter'} } },
+        x:{ grid:{ color:C.grid }, ticks:{ color:C.muted, font:{family:'Inter'} } },
+        y:{ grid:{ display:false }, ticks:{ color:C.text, font:{family:'Inter'} } },
       },
     },
   })
@@ -390,6 +437,7 @@ function renderChartWorkload(tasks) {
   })
   const labels = Object.keys(counts).sort((a,b) => counts[b] - counts[a]).slice(0,10)
   if (!labels.length) return
+  const C = chartColors()
   state.charts.workload = new Chart(ctx, {
     type:'bar',
     data:{
@@ -400,8 +448,8 @@ function renderChartWorkload(tasks) {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ display:false } },
       scales:{
-        x:{ grid:{ color:'#2d3040' }, ticks:{ color:'#7b8194', font:{family:'Inter'}, stepSize:1 } },
-        y:{ grid:{ display:false },   ticks:{ color:'#e2e4ee', font:{family:'Inter'} } },
+        x:{ grid:{ color:C.grid }, ticks:{ color:C.muted, font:{family:'Inter'}, stepSize:1 } },
+        y:{ grid:{ display:false }, ticks:{ color:C.text, font:{family:'Inter'} } },
       },
     },
   })
@@ -799,6 +847,9 @@ function populatePanel(task) {
   $('#panelDescricao').value      = task.descricao || ''
   $('#panelHoraPublicacao').value = task.hora_publicacao || ''
   $('#panelProductionDays').value = task.production_days || ''
+  $('#panelRoteiro').value        = task.roteiro || ''
+  $('#roteiroRevisions').hidden   = true
+  $('#roteiroMeta').textContent   = task.roteiro ? `atualizado ${relativeTime(task.updated_at)}` : ''
 
   // Custom link fields with open buttons
   const gdriveVal   = task.link_gdrive   || ''
@@ -815,7 +866,7 @@ function populatePanel(task) {
   const editable = isAdmin()
   ;['#panelPriority','#panelCanal','#panelTipo','#panelStartDate','#panelDueDate',
     '#panelSolicitante','#panelDescricao','#panelHoraPublicacao','#panelProductionDays',
-    '#panelGdrive','#panelFrameio']
+    '#panelGdrive','#panelFrameio','#panelRoteiro']
     .forEach(sel => $(sel).disabled = !editable)
   $('#panelDeleteBtn').hidden = !editable
   const addWrap = $('#checklistAddWrap')
@@ -835,7 +886,38 @@ function populatePanel(task) {
   renderChecklist(task.checklist || [], editable)
   renderVoteBtn(task.votes || [])
   renderComments(task.comments||[])
+  renderPanelCampaign(task)
+  renderApprovals(task.approvals || [])
+  // o botão "adicionar peça" é só para a equipe (admin); aprovar/ajustes vale p/ todos
+  const aw = $('#approvalAddWrap'); if (aw) aw.hidden = !editable
 }
+async function renderPanelCampaign(task) {
+  const sel = $('#panelCampaign')
+  if (!sel) return
+  if (!state.campaigns.length) { try { state.campaigns = await api('/campaigns') } catch {} }
+  populateCampaignSelect('#panelCampaign', task.campaign_id || '')
+  sel.disabled = !isAdmin()
+  // Assets compartilhados da campanha (somente leitura no painel da tarefa)
+  const assets = task.campaign?.link_assets || []
+  const wrap = $('#panelCampaignAssets')
+  const list = $('#panelCampaignAssetList')
+  if (wrap && list) {
+    if (task.campaign_id && assets.length) {
+      wrap.hidden = false
+      list.innerHTML = assets.map(a => `<div class="cdp-asset-row">
+        <span class="cdp-asset-name">${escapeHtml(a.nome)}</span>
+        <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.url)}</a>
+      </div>`).join('')
+    } else { wrap.hidden = true; list.innerHTML = '' }
+  }
+}
+$('#panelCampaign')?.addEventListener('change', async () => {
+  if (!isAdmin() || !state.currentTaskId) return
+  const val = $('#panelCampaign').value || null
+  await patchCurrentTask({ campaign_id: val })
+  // recarrega a tarefa p/ refletir assets compartilhados da nova campanha
+  try { const task = await api('/tasks/'+state.currentTaskId); renderPanelCampaign(task) } catch {}
+})
 function renderComments(comments) {
   const count = comments.length
   $('#commentCount').textContent = count||''
@@ -906,6 +988,42 @@ $('#panelCanal').addEventListener('change', () => {
 $('#panelDescricao').addEventListener('blur', () => {
   if (isAdmin()) patchCurrentTask({ descricao: $('#panelDescricao').value.trim()||undefined })
 })
+// Roteiro colaborativo — autosave (debounce) + on blur
+let _roteiroTO = null
+function saveRoteiro() {
+  if (!isAdmin() || !state.currentTaskId) return
+  const val = $('#panelRoteiro').value
+  patchCurrentTask({ roteiro: val || null })
+  $('#roteiroMeta').textContent = `salvo ${relativeTime(new Date().toISOString())}`
+}
+$('#panelRoteiro')?.addEventListener('input', () => {
+  clearTimeout(_roteiroTO)
+  _roteiroTO = setTimeout(saveRoteiro, 1500)
+})
+$('#panelRoteiro')?.addEventListener('blur', () => { clearTimeout(_roteiroTO); saveRoteiro() })
+$('#roteiroHistoryBtn')?.addEventListener('click', async () => {
+  const box = $('#roteiroRevisions')
+  if (!box) return
+  if (!box.hidden) { box.hidden = true; return }
+  box.hidden = false
+  box.innerHTML = '<div class="app-loader"></div>'
+  try {
+    const revs = await api('/tasks/'+state.currentTaskId+'/roteiro/revisions')
+    if (!revs.length) { box.innerHTML = '<p class="muted" style="font-size:.8rem">Sem revisões ainda.</p>'; return }
+    box.innerHTML = revs.map(r => {
+      const autor = r.autor?.nome || 'Alguém'
+      return `<div class="roteiro-rev">
+        <div class="roteiro-rev-meta"><strong>${escapeHtml(autor)}</strong> · ${relativeTime(r.created_at)}</div>
+        <div class="roteiro-rev-content">${escapeHtml(r.conteudo)}</div>
+        ${isAdmin() ? `<button class="btn-ghost btn-sm roteiro-rev-restore" data-restore="${r.id}">Restaurar</button>` : ''}
+      </div>`
+    }).join('')
+    $$('[data-restore]', box).forEach(btn => btn.addEventListener('click', () => {
+      const rev = revs.find(x => x.id === btn.dataset.restore)
+      if (rev) { $('#panelRoteiro').value = rev.conteudo; saveRoteiro(); toast('Roteiro restaurado.','success') }
+    }))
+  } catch (err) { box.innerHTML = `<p class="muted" style="font-size:.8rem">${escapeHtml(err.message)}</p>` }
+})
 $('#panelHoraPublicacao').addEventListener('blur', () => {
   if (isAdmin()) patchCurrentTask({ hora_publicacao: $('#panelHoraPublicacao').value.trim()||null })
 })
@@ -964,11 +1082,13 @@ $('#newTaskBtn').addEventListener('click', async () => {
   try {
     if (!state.teams.length) state.teams = await api('/teams')
     if (!state.users.length) state.users  = await api('/users')
+    if (!state.campaigns.length) { try { state.campaigns = await api('/campaigns') } catch {} }
   } catch (err) { toast(err.message,'error'); return }
   if (!state.teams.length) { toast('Crie ao menos uma equipe primeiro.','error'); navigate('teams'); return }
   $('#tTeam').innerHTML = state.teams.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join('')
   $('#tUsers').innerHTML = state.users.filter(u=>u.role!=='GUEST')
     .map(u => `<option value="${u.id}">${escapeHtml(u.nome)} (${escapeHtml(u.email)})</option>`).join('')
+  populateCampaignSelect('#tCampaign', '')
   $('#taskDialog').showModal()
 })
 $('#cancelTaskBtn').addEventListener('click', () => $('#taskDialog').close())
@@ -993,6 +1113,7 @@ $('#taskForm').addEventListener('submit', async e => {
     data_inicio_planejado: $('#tStartDate').value||undefined,
     data_fim_planejado:   $('#tPrazo').value||undefined,
     production_days:      isNaN(_prodDays) ? undefined : _prodDays,
+    campaign_id:          $('#tCampaign').value || undefined,
     team_ids:             [$('#tTeam').value],
     user_ids:             Array.from($('#tUsers').selectedOptions).map(o=>o.value),
   }
@@ -1372,6 +1493,7 @@ document.addEventListener('keydown', e => {
   if (e.key==='n' && isAdmin() && !$('#appShell').hidden) { e.preventDefault(); $('#newTaskBtn').click() }
   if (e.key==='Escape' && !$('#taskDetailOverlay').hidden) closePanel()
   if (e.key==='Escape' && !$('#teamDetailOverlay').hidden) closeTeamPanel()
+  if (e.key==='Escape' && !$('#campaignDetailOverlay').hidden) closeCampaignPanel()
 })
 
 /* ── Gallery view ──────────────────────────────────────────────── */
@@ -1576,6 +1698,67 @@ $('#panelVoteBtn')?.addEventListener('click', () => {
   if (state.currentTaskId) toggleVote(state.currentTaskId)
 })
 
+/* ── Asset approvals ───────────────────────────────────────────── */
+const APPROVAL_LABELS = { PENDENTE:'Pendente', APROVADO:'Aprovado', AJUSTES:'Ajustes solicitados' }
+function renderApprovals(approvals) {
+  const list = $('#panelApprovals')
+  if (!list) return
+  $('#approvalCount').textContent = approvals.length || ''
+  if (!approvals.length) {
+    list.innerHTML = '<p class="muted" style="font-size:.8rem">Nenhuma peça enviada para aprovação.</p>'
+    return
+  }
+  list.innerHTML = approvals.map(a => {
+    const isImg = isImageUrl(a.asset_url)
+    const fileName = (a.asset_url.split('/').pop() || a.asset_url).split('?')[0]
+    return `<div class="approval-item" data-aid="${a.id}">
+      ${isImg
+        ? `<img class="approval-preview" src="${escapeHtml(a.asset_url)}" alt="peça" data-open="${escapeHtml(a.asset_url)}" loading="lazy" />`
+        : ''}
+      <div class="approval-filerow">
+        <span>${isImg ? '🖼️' : '📄'}</span>
+        <a href="${escapeHtml(a.asset_url)}" target="_blank" rel="noopener">${escapeHtml(fileName)}</a>
+      </div>
+      <div class="approval-body">
+        <div class="approval-status-row">
+          <span class="approval-badge ${a.status}">${APPROVAL_LABELS[a.status]||a.status}</span>
+          <div class="approval-actions">
+            <button class="approval-act ok"  data-approve="${a.id}">✓ Aprovar</button>
+            <button class="approval-act fix" data-fix="${a.id}">↻ Pedir ajustes</button>
+          </div>
+        </div>
+        ${a.nota ? `<div class="approval-note">💬 ${escapeHtml(a.nota)}</div>` : ''}
+      </div>
+    </div>`
+  }).join('')
+  $$('[data-open]', list).forEach(img => img.addEventListener('click', () => window.open(img.dataset.open, '_blank', 'noopener')))
+  $$('[data-approve]', list).forEach(b => b.addEventListener('click', () => decideApproval(b.dataset.approve, 'APROVADO')))
+  $$('[data-fix]', list).forEach(b => b.addEventListener('click', () => decideApproval(b.dataset.fix, 'AJUSTES')))
+}
+async function decideApproval(approvalId, status) {
+  let nota
+  if (status === 'AJUSTES') {
+    nota = prompt('Descreva os ajustes necessários (opcional):') || undefined
+  }
+  try {
+    await api('/approvals/'+approvalId, { method:'PATCH', body: JSON.stringify({ status, nota }) })
+    const task = await api('/tasks/'+state.currentTaskId)
+    renderApprovals(task.approvals || [])
+    toast(status === 'APROVADO' ? 'Peça aprovada!' : 'Ajustes solicitados.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+}
+$('#approvalAddBtn')?.addEventListener('click', async () => {
+  const url = $('#approvalUrl')?.value.trim()
+  if (!url) { toast('Cole a URL da peça.', 'error'); return }
+  try {
+    await api('/tasks/'+state.currentTaskId+'/approvals', { method:'POST', body: JSON.stringify({ asset_url: url }) })
+    $('#approvalUrl').value = ''
+    const task = await api('/tasks/'+state.currentTaskId)
+    renderApprovals(task.approvals || [])
+    toast('Peça enviada para aprovação.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+})
+
 /* ── Attachment URL ────────────────────────────────────────────── */
 $('#toggleAttachBtn')?.addEventListener('click', () => {
   const wrap = $('#attachUrlWrap')
@@ -1653,6 +1836,313 @@ function renderBriefings(briefings) {
   )
 }
 $('#refreshBriefingsBtn')?.addEventListener('click', loadBriefings)
+
+/* ── Campaigns ─────────────────────────────────────────────────── */
+function isImageUrl(u) { return /\.(png|jpe?g|gif|webp|svg|avif)(\?|$)/i.test(u || '') }
+
+async function loadCampaigns() {
+  const grid = $('#campaignGrid')
+  if (grid) grid.innerHTML = '<div class="app-loader"></div>'
+  try {
+    const [camps] = await Promise.all([
+      api('/campaigns'),
+      state.allTasks.length ? Promise.resolve() : api('/tasks/kanban').then(b => { state.allTasks = Object.values(b).flat() }),
+    ])
+    state.campaigns = camps
+    renderCampaignGrid(camps)
+  } catch (err) { if (grid) grid.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>` }
+}
+function renderCampaignGrid(camps) {
+  const grid = $('#campaignGrid')
+  if (!grid) return
+  if (!camps.length) {
+    grid.innerHTML = '<div class="empty-state">Nenhuma campanha ainda. Clique em <strong>+ Nova campanha</strong> para agrupar tarefas de um evento.</div>'
+    return
+  }
+  grid.innerHTML = camps.map(c => {
+    const cor = c.cor || '#E8743B'
+    const total = c.task_count ?? 0, done = c.task_done ?? 0
+    const pct = total > 0 ? Math.round((done/total)*100) : 0
+    const evt = c.data_evento ? new Date(c.data_evento).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}) : null
+    return `<div class="campaign-card" data-camp="${c.id}" style="--cc-color:${cor}">
+      <div class="cc-name">${escapeHtml(c.nome)}</div>
+      <div class="cc-meta">
+        ${evt ? `<span>📅 ${evt}</span>` : ''}
+        ${c.local ? `<span>📍 ${escapeHtml(c.local)}</span>` : ''}
+      </div>
+      <div class="cc-progress"><div class="cc-progress-fill" style="width:${pct}%"></div></div>
+      <div class="cc-footer">
+        <span>${done}/${total} concluídas</span>
+        <span>${(c.link_assets||[]).length} assets</span>
+      </div>
+    </div>`
+  }).join('')
+  $$('.campaign-card', grid).forEach(card => card.addEventListener('click', () => openCampaignPanel(card.dataset.camp)))
+}
+
+let currentCampaignId = null
+let currentCampaign   = null
+async function openCampaignPanel(id) {
+  try {
+    const c = await api('/campaigns/'+id)
+    currentCampaignId = id; currentCampaign = c
+    const cor = c.cor || '#E8743B'
+    $('#cdpColorDot').style.background = cor
+    const nameEl = $('#cdpName')
+    nameEl.textContent = c.nome
+    nameEl.contentEditable = isAdmin() ? 'plaintext-only' : 'false'
+    $('#cdpDataEvento').value = c.data_evento ? c.data_evento.slice(0,10) : ''
+    $('#cdpLocal').value      = c.local || ''
+    $('#cdpDescricao').value  = c.descricao || ''
+    const tasks = c.tasks || []
+    const done  = tasks.filter(t => t.status === 'CONCLUIDO').length
+    $('#cdpStats').innerHTML = [
+      { val: tasks.length, lbl: 'Tarefas' },
+      { val: done,         lbl: 'Concluídas', cls:'success' },
+      { val: (c.link_assets||[]).length, lbl: 'Assets' },
+    ].map(s => `<div class="tdp-stat-item ${s.cls||''}"><div class="tdp-stat-val">${s.val}</div><div class="tdp-stat-lbl">${s.lbl}</div></div>`).join('')
+    const ed = isAdmin()
+    ;['#cdpDataEvento','#cdpLocal','#cdpDescricao'].forEach(s => $(s).disabled = !ed)
+    $('#cdpAssetAddWrap').hidden = !ed
+    $('#cdpDeleteBtn').hidden = !ed
+    renderCampaignAssets(c.link_assets || [], ed)
+    renderCampaignPanelTasks(tasks)
+    $('#campaignDetailOverlay').hidden = false
+    document.body.style.overflow = 'hidden'
+  } catch (err) { toast(err.message, 'error') }
+}
+function closeCampaignPanel() {
+  $('#campaignDetailOverlay').hidden = true
+  document.body.style.overflow = ''
+  currentCampaignId = null; currentCampaign = null
+}
+function renderCampaignAssets(assets, editable) {
+  const list = $('#cdpAssetList')
+  $('#cdpAssetCount').textContent = assets.length || ''
+  if (!assets.length) { list.innerHTML = '<p class="muted" style="font-size:.8rem">Nenhum asset compartilhado.</p>'; return }
+  list.innerHTML = assets.map((a, i) => `
+    <div class="cdp-asset-row">
+      <span class="cdp-asset-name">${escapeHtml(a.nome)}</span>
+      <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.url)}</a>
+      ${editable ? `<button class="cdp-asset-del" data-asset-idx="${i}" title="Remover">×</button>` : ''}
+    </div>`).join('')
+  if (editable) {
+    $$('[data-asset-idx]', list).forEach(btn => btn.addEventListener('click', async () => {
+      const idx = +btn.dataset.assetIdx
+      const next = (currentCampaign.link_assets || []).filter((_, i) => i !== idx)
+      await saveCampaignAssets(next)
+    }))
+  }
+}
+async function saveCampaignAssets(assets) {
+  try {
+    await api('/campaigns/'+currentCampaignId, { method:'PATCH', body: JSON.stringify({ link_assets: assets }) })
+    currentCampaign.link_assets = assets
+    renderCampaignAssets(assets, isAdmin())
+    const cc = state.campaigns.find(c => c.id === currentCampaignId); if (cc) cc.link_assets = assets
+    toast('Assets atualizados.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+}
+function renderCampaignPanelTasks(tasks) {
+  $('#cdpTaskCount').textContent = tasks.length || ''
+  const wrap = $('#cdpTaskList')
+  if (!tasks.length) { wrap.innerHTML = '<p class="muted" style="font-size:.8rem">Nenhuma tarefa vinculada.</p>'; return }
+  wrap.innerHTML = tasks.map(t => `<div class="tdp-task-row" data-id="${t.id}">
+    ${priorityChip(t.prioridade)}
+    <span class="tdp-task-title">${escapeHtml(t.titulo)}</span>
+    ${statusBadge(t.status)}
+  </div>`).join('')
+  $$('.tdp-task-row', wrap).forEach(row => row.addEventListener('click', () => { closeCampaignPanel(); navigate('tasks'); openPanel(row.dataset.id) }))
+}
+$('#cdpAssetAddBtn')?.addEventListener('click', async () => {
+  const nome = $('#cdpAssetNome').value.trim()
+  const url  = $('#cdpAssetUrl').value.trim()
+  if (!nome || !url) { toast('Informe nome e URL do asset.', 'error'); return }
+  const next = [...(currentCampaign.link_assets || []), { nome, url }]
+  $('#cdpAssetNome').value = ''; $('#cdpAssetUrl').value = ''
+  await saveCampaignAssets(next)
+})
+$('#cdpName')?.addEventListener('blur', async () => {
+  if (!isAdmin() || !currentCampaignId) return
+  const nome = $('#cdpName').textContent.trim()
+  if (!nome || nome.length < 2) return
+  try { await api('/campaigns/'+currentCampaignId, { method:'PATCH', body: JSON.stringify({ nome }) })
+    const cc = state.campaigns.find(c => c.id === currentCampaignId); if (cc) cc.nome = nome
+    toast('Campanha atualizada.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+})
+;[['#cdpDataEvento','data_evento'],['#cdpLocal','local'],['#cdpDescricao','descricao']].forEach(([sel,key]) => {
+  $(sel)?.addEventListener('blur', () => {
+    if (!isAdmin() || !currentCampaignId) return
+    api('/campaigns/'+currentCampaignId, { method:'PATCH', body: JSON.stringify({ [key]: $(sel).value || null }) })
+      .then(() => toast('Salvo.','success')).catch(e => toast(e.message,'error'))
+  })
+})
+$('#closeCampaignPanelBtn')?.addEventListener('click', closeCampaignPanel)
+$('#campaignPanelBackdrop')?.addEventListener('click', closeCampaignPanel)
+$('#cdpDeleteBtn')?.addEventListener('click', async () => {
+  if (!await confirmDialog('Excluir esta campanha? As tarefas serão desvinculadas (não excluídas).')) return
+  try {
+    await api('/campaigns/'+currentCampaignId, { method:'DELETE' })
+    state.campaigns = state.campaigns.filter(c => c.id !== currentCampaignId)
+    closeCampaignPanel(); renderCampaignGrid(state.campaigns)
+    toast('Campanha excluída.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+})
+$('#newCampaignBtn')?.addEventListener('click', () => {
+  $('#campaignFormError').hidden = true
+  $('#cNome').value=''; $('#cDescricao').value=''; $('#cDataEvento').value=''; $('#cLocal').value=''; $('#cCor').value='#E8743B'
+  $('#campaignDialog').showModal()
+})
+$('#cancelCampaignBtn')?.addEventListener('click', () => $('#campaignDialog').close())
+$('#campaignForm')?.addEventListener('submit', async e => {
+  e.preventDefault()
+  const body = {
+    nome:        $('#cNome').value.trim(),
+    descricao:   $('#cDescricao').value.trim() || undefined,
+    data_evento: $('#cDataEvento').value || undefined,
+    cor:         $('#cCor').value || undefined,
+    local:       $('#cLocal').value.trim() || undefined,
+  }
+  try {
+    await api('/campaigns', { method:'POST', body: JSON.stringify(body) })
+    $('#campaignDialog').close(); toast('Campanha criada.','success'); loadCampaigns()
+  } catch (err) { $('#campaignFormError').textContent = err.message; $('#campaignFormError').hidden = false }
+})
+function populateCampaignSelect(sel, currentValue) {
+  const el = $(sel); if (!el) return
+  el.innerHTML = '<option value="">— Sem campanha —</option>' +
+    state.campaigns.map(c => `<option value="${c.id}"${c.id===currentValue?' selected':''}>${escapeHtml(c.nome)}</option>`).join('')
+}
+
+/* ── Map view (Leaflet + OpenStreetMap) ────────────────────────── */
+let _leafletMap = null, _leafletLoaded = false
+function ensureLeaflet() {
+  return new Promise((resolve) => {
+    if (window.L) { resolve(true); return }
+    if (_leafletLoaded) { const t = setInterval(() => { if (window.L) { clearInterval(t); resolve(true) } }, 100); return }
+    _leafletLoaded = true
+    const css = document.createElement('link')
+    css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+    document.head.appendChild(css)
+    const s = document.createElement('script')
+    s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    s.onload = () => resolve(true)
+    s.onerror = () => resolve(false)
+    document.head.appendChild(s)
+  })
+}
+async function loadMap() {
+  try {
+    if (!state.allTasks.length) { const b = await api('/tasks/kanban'); state.allTasks = Object.values(b).flat() }
+    if (!state.campaigns.length) { try { state.campaigns = await api('/campaigns') } catch {} }
+  } catch (err) { toast(err.message, 'error') }
+  // pontos: tarefas e campanhas com lat/lng
+  const points = []
+  state.allTasks.forEach(t => { if (t.lat != null && t.lng != null) points.push({ kind:'tarefa', id:t.id, title:t.titulo, addr:t.local, lat:t.lat, lng:t.lng }) })
+  state.campaigns.forEach(c => { if (c.lat != null && c.lng != null) points.push({ kind:'campanha', id:c.id, title:c.nome, addr:c.local, lat:c.lat, lng:c.lng }) })
+  const withAddr = [
+    ...state.allTasks.filter(t => t.local).map(t => ({ kind:'tarefa', id:t.id, title:t.titulo, addr:t.local, lat:t.lat, lng:t.lng })),
+    ...state.campaigns.filter(c => c.local).map(c => ({ kind:'campanha', id:c.id, title:c.nome, addr:c.local, lat:c.lat, lng:c.lng })),
+  ]
+  // lista textual (sempre)
+  const list = $('#mapList')
+  if (list) {
+    list.innerHTML = withAddr.length
+      ? withAddr.map(p => `<div class="map-list-item" data-kind="${p.kind}" data-id="${p.id}">
+          <svg class="map-list-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <div class="map-list-body"><div class="map-list-title">${escapeHtml(p.title)} <span class="muted" style="font-size:.75rem">· ${p.kind}</span></div>
+          <div class="map-list-addr">${escapeHtml(p.addr || 'Sem endereço')}</div></div>
+        </div>`).join('')
+      : '<div class="empty-state">Nenhuma tarefa ou campanha com endereço definido. Adicione um <strong>Local</strong> ao criar/editar.</div>'
+    $$('.map-list-item', list).forEach(el => el.addEventListener('click', () => {
+      if (el.dataset.kind === 'tarefa') { navigate('tasks'); openPanel(el.dataset.id) }
+      else openCampaignPanel(el.dataset.id)
+    }))
+  }
+  // mapa interativo só se houver coordenadas
+  const ok = await ensureLeaflet()
+  const canvas = $('#mapCanvas')
+  if (!ok || !window.L || !canvas) { if (canvas) canvas.style.display = 'none'; return }
+  canvas.style.display = points.length ? 'block' : 'none'
+  if (!points.length) return
+  if (_leafletMap) { _leafletMap.remove(); _leafletMap = null }
+  _leafletMap = window.L.map(canvas).setView([points[0].lat, points[0].lng], 11)
+  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap',
+  }).addTo(_leafletMap)
+  points.forEach(p => {
+    window.L.marker([p.lat, p.lng]).addTo(_leafletMap)
+      .bindPopup(`<strong>${escapeHtml(p.title)}</strong><br>${escapeHtml(p.addr||'')}`)
+  })
+  setTimeout(() => _leafletMap && _leafletMap.invalidateSize(), 200)
+}
+$('#refreshMapBtn')?.addEventListener('click', loadMap)
+
+/* ── Notifications ─────────────────────────────────────────────── */
+let _notifTimer = null
+function startNotifPolling() {
+  if (state.user?.role === 'GUEST') return       // visitantes não recebem notificações
+  loadNotifications()
+  clearInterval(_notifTimer)
+  _notifTimer = setInterval(loadNotifications, 30000)   // polling leve a cada 30s
+}
+function stopNotifPolling() { clearInterval(_notifTimer); _notifTimer = null }
+async function loadNotifications() {
+  try {
+    const items = await api('/notifications')
+    renderNotifications(Array.isArray(items) ? items : [])
+  } catch { /* endpoint pode não existir ainda — falha silenciosa */ }
+}
+function renderNotifications(items) {
+  const badge = $('#notifBadge')
+  const list  = $('#notifList')
+  if (!list) return
+  const unread = items.filter(n => !n.lida).length
+  if (badge) {
+    badge.textContent = unread > 9 ? '9+' : String(unread)
+    badge.hidden = unread === 0
+  }
+  if (!items.length) {
+    list.innerHTML = '<div class="notif-empty">Nenhuma notificação.</div>'
+    return
+  }
+  list.innerHTML = items.slice(0, 30).map(n => `
+    <div class="notif-item ${n.lida ? '' : 'unread'}" data-notif="${n.id}" ${n.task_id ? `data-task="${n.task_id}"` : ''}>
+      <span class="notif-dot"></span>
+      <div class="notif-body">
+        <div class="notif-msg">${escapeHtml(n.mensagem)}</div>
+        <div class="notif-time">${relativeTime(n.created_at)}</div>
+      </div>
+    </div>`).join('')
+  $$('.notif-item', list).forEach(el => el.addEventListener('click', async () => {
+    const id = el.dataset.notif, taskId = el.dataset.task
+    try { await api('/notifications/'+id+'/read', { method:'PATCH' }) } catch {}
+    el.classList.remove('unread')
+    loadNotifications()
+    if (taskId) { $('#notifDropdown').hidden = true; navigate('tasks'); openPanel(taskId) }
+  }))
+}
+$('#notifBtn')?.addEventListener('click', e => {
+  e.stopPropagation()
+  const dd = $('#notifDropdown')
+  if (dd) { dd.hidden = !dd.hidden; if (!dd.hidden) loadNotifications() }
+})
+$('#notifMarkAll')?.addEventListener('click', async () => {
+  try { await api('/notifications/read-all', { method:'PATCH' }); loadNotifications() }
+  catch (err) { toast(err.message, 'error') }
+})
+document.addEventListener('click', e => {
+  if (!$('.notif-wrap')?.contains(e.target)) { const dd = $('#notifDropdown'); if (dd) dd.hidden = true }
+})
+
+/* ── Section reveal on scroll (IntersectionObserver) ───────────── */
+const _revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('is-visible'); _revealObserver.unobserve(en.target) } })
+}, { threshold: 0.08 })
+function observeReveals(root = document) {
+  $$('.reveal:not(.is-visible)', root).forEach(el => _revealObserver.observe(el))
+}
 
 /* ── Init ──────────────────────────────────────────────────────── */
 if (state.token && state.user) showApp()

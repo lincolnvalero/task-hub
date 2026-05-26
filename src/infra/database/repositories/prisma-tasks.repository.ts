@@ -13,8 +13,10 @@ import type { Task, TaskStatus } from '../../../core/entities/task.entity'
 const TASK_SELECT_BASE = `
   id, titulo, descricao, status, prioridade, tipo_tarefa, solicitante, canal,
   link_gdrive, link_frameio, hora_publicacao, production_days,
+  campaign_id, roteiro, local, lat, lng,
   data_inicio_planejado, data_fim_planejado, data_conclusao_efetiva,
   created_at, updated_at, deleted_at,
+  campaign:campaigns(id, nome, cor, link_assets),
   assignments:task_assignments(
     user_id, team_id,
     user:users(nome, email),
@@ -25,7 +27,8 @@ const TASK_SELECT_BASE = `
 
 const TASK_SELECT_FULL = TASK_SELECT_BASE + `,
   checklist:task_checklist_items(id, texto, done, deadline, assignee_id),
-  votes:task_votes(user_id)
+  votes:task_votes(user_id),
+  approvals:asset_approvals(id, asset_url, status, nota, reviewer_id, created_at)
 `
 
 export class PrismaTasksRepository implements ITasksRepository {
@@ -40,6 +43,10 @@ export class PrismaTasksRepository implements ITasksRepository {
         tipo_tarefa:           data.tipo_tarefa,
         solicitante:           data.solicitante,
         canal:                 data.canal,
+        campaign_id:           data.campaign_id ?? null,
+        local:                 data.local ?? null,
+        lat:                   data.lat ?? null,
+        lng:                   data.lng ?? null,
         data_inicio_planejado: data.data_inicio_planejado?.toISOString(),
         data_fim_planejado:    data.data_fim_planejado?.toISOString(),
       })
@@ -179,6 +186,47 @@ export class PrismaTasksRepository implements ITasksRepository {
       .delete()
       .eq('id', item_id)
     if (error) throw error
+  }
+
+  async addRoteiroRevision(task_id: string, autor_id: string | null, conteudo: string): Promise<void> {
+    const { error } = await supabase.from('roteiro_revisions').insert({
+      id: randomUUID(), task_id, autor_id, conteudo,
+    })
+    if (error) throw error
+  }
+
+  async listRoteiroRevisions(task_id: string): Promise<Array<{ id: string; autor_id: string | null; conteudo: string; created_at: string }>> {
+    const { data, error } = await supabase
+      .from('roteiro_revisions')
+      .select('id, autor_id, conteudo, created_at, autor:users(nome)')
+      .eq('task_id', task_id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    if (error) throw error
+    return (data ?? []) as any
+  }
+
+  async addApproval(task_id: string, asset_url: string): Promise<{ id: string }> {
+    const id = randomUUID()
+    const { error } = await supabase.from('asset_approvals').insert({
+      id, task_id, asset_url, status: 'PENDENTE',
+    })
+    if (error) throw error
+    return { id }
+  }
+
+  async updateApproval(id: string, data: { status?: string; nota?: string; reviewer_id?: string }): Promise<void> {
+    const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
+    if (data.status !== undefined)      payload.status = data.status
+    if (data.nota !== undefined)        payload.nota = data.nota
+    if (data.reviewer_id !== undefined) payload.reviewer_id = data.reviewer_id
+    const { error } = await supabase.from('asset_approvals').update(payload).eq('id', id)
+    if (error) throw error
+  }
+
+  async findApprovalTaskId(id: string): Promise<string | null> {
+    const { data } = await supabase.from('asset_approvals').select('task_id').eq('id', id).maybeSingle()
+    return (data as { task_id: string } | null)?.task_id ?? null
   }
 
   async toggleVote(task_id: string, user_id: string): Promise<{ voted: boolean }> {

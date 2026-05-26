@@ -46,7 +46,8 @@ const briefingSchema = z.object({
 })
 
 const briefingReviewSchema = z.object({
-  status: z.enum(['CONVERTIDO', 'REJEITADO']),
+  status:      z.enum(['CONVERTIDO', 'REJEITADO']),
+  campaign_id: z.string().min(1).optional(),
 })
 
 export async function externalRoutes(app: FastifyInstance) {
@@ -201,7 +202,7 @@ export async function externalRoutes(app: FastifyInstance) {
 
     const { data: existing } = await supabase
       .from('briefing_requests')
-      .select('id, status')
+      .select('*')
       .eq('id', request.params.id)
       .maybeSingle()
     if (!existing) return reply.status(404).send({ error: 'Briefing não encontrado.' })
@@ -209,12 +210,38 @@ export async function externalRoutes(app: FastifyInstance) {
       return reply.status(422).send({ error: 'Este briefing já foi revisado.' })
     }
 
+    let createdTaskId: string | null = null
+
+    // Converter em tarefa: cria uma tarefa no Backlog a partir do briefing
+    if (body.data.status === 'CONVERTIDO') {
+      const CANAIS = ['INSTAGRAM','YOUTUBE','TIKTOK','LINKEDIN','WHATSAPP','SITE','EMAIL','EVENTO','APRESENTACAO','OUTRO']
+      const canal = CANAIS.includes(String(existing.canal)) ? existing.canal : null
+      const taskId = randomUUID()
+      const { error: taskErr } = await supabase.from('tasks').insert({
+        id:          taskId,
+        titulo:      `${existing.tipo} — ${existing.nome}`.slice(0, 200),
+        descricao:   existing.descricao,
+        status:      'BACKLOG',
+        prioridade:  'MEDIA',
+        tipo_tarefa: existing.tipo,
+        solicitante: existing.nome,
+        canal,
+        campaign_id: (body.data as { campaign_id?: string }).campaign_id ?? null,
+        data_fim_planejado: existing.data_evento ? new Date(existing.data_evento).toISOString() : null,
+      })
+      if (taskErr) return reply.status(500).send({ error: taskErr.message })
+      createdTaskId = taskId
+    }
+
     const { error } = await supabase
       .from('briefing_requests')
-      .update({ status: body.data.status })
+      .update({ status: body.data.status, task_id: createdTaskId })
       .eq('id', request.params.id)
     if (error) return reply.status(500).send({ error: error.message })
 
-    return reply.send({ message: `Briefing marcado como ${body.data.status.toLowerCase()}.` })
+    return reply.send({
+      message: `Briefing marcado como ${body.data.status.toLowerCase()}.`,
+      task_id: createdTaskId,
+    })
   })
 }

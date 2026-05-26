@@ -78,3 +78,101 @@ DROP POLICY IF EXISTS "briefing_update_auth"   ON briefing_requests;
 CREATE POLICY "briefing_insert_public" ON briefing_requests FOR INSERT WITH CHECK (true);
 CREATE POLICY "briefing_select_auth"   ON briefing_requests FOR SELECT USING (true);
 CREATE POLICY "briefing_update_auth"   ON briefing_requests FOR UPDATE USING (true) WITH CHECK (true);
+
+-- ============================================================
+-- v3 — Features de agência de comunicação
+-- (campanhas, aprovações, roteiro, notificações, automações, mapa)
+-- IDs Prisma são cuid() => TODAS as FKs são TEXT.
+-- ============================================================
+
+-- 5. Campanhas — agrupam tarefas de um evento/culto e compartilham assets
+CREATE TABLE IF NOT EXISTS campaigns (
+  id          TEXT        PRIMARY KEY,
+  nome        TEXT        NOT NULL CHECK (char_length(nome) BETWEEN 2 AND 200),
+  descricao   TEXT,
+  cor         TEXT,                       -- hex p/ etiqueta visual
+  data_evento DATE,
+  local       TEXT,
+  lat         DOUBLE PRECISION,
+  lng         DOUBLE PRECISION,
+  link_assets JSONB       NOT NULL DEFAULT '[]'::jsonb,  -- [{nome,url}] compartilhados
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at  TIMESTAMPTZ                 -- soft delete
+);
+CREATE INDEX IF NOT EXISTS idx_campaigns_deleted ON campaigns(deleted_at);
+ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "campaigns_all" ON campaigns;
+CREATE POLICY "campaigns_all" ON campaigns FOR ALL USING (true) WITH CHECK (true);
+
+-- 6. Novas colunas em tasks (campanha, roteiro colaborativo, localização do evento)
+ALTER TABLE tasks
+  ADD COLUMN IF NOT EXISTS campaign_id TEXT REFERENCES campaigns(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS roteiro     TEXT,
+  ADD COLUMN IF NOT EXISTS local       TEXT,
+  ADD COLUMN IF NOT EXISTS lat         DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS lng         DOUBLE PRECISION;
+CREATE INDEX IF NOT EXISTS idx_tasks_campaign ON tasks(campaign_id);
+
+-- 7. Aprovação de peças criativas (sign-off do líder/cliente)
+CREATE TABLE IF NOT EXISTS asset_approvals (
+  id          TEXT        PRIMARY KEY,
+  task_id     TEXT        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  asset_url   TEXT        NOT NULL,
+  status      TEXT        NOT NULL DEFAULT 'PENDENTE'
+                          CHECK (status IN ('PENDENTE','APROVADO','AJUSTES')),
+  nota        TEXT,
+  reviewer_id TEXT        REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_approvals_task ON asset_approvals(task_id);
+ALTER TABLE asset_approvals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "approvals_all" ON asset_approvals;
+CREATE POLICY "approvals_all" ON asset_approvals FOR ALL USING (true) WITH CHECK (true);
+
+-- 8. Histórico de revisões do roteiro colaborativo
+CREATE TABLE IF NOT EXISTS roteiro_revisions (
+  id         TEXT        PRIMARY KEY,
+  task_id    TEXT        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  autor_id   TEXT        REFERENCES users(id) ON DELETE SET NULL,
+  conteudo   TEXT        NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_roteiro_task ON roteiro_revisions(task_id);
+ALTER TABLE roteiro_revisions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "roteiro_rev_all" ON roteiro_revisions;
+CREATE POLICY "roteiro_rev_all" ON roteiro_revisions FOR ALL USING (true) WITH CHECK (true);
+
+-- 9. Notificações in-app (LGPD: restritas ao próprio usuário; retenção sugerida 90 dias)
+CREATE TABLE IF NOT EXISTS task_notifications (
+  id         TEXT        PRIMARY KEY,
+  user_id    TEXT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  task_id    TEXT        REFERENCES tasks(id) ON DELETE CASCADE,
+  tipo       TEXT        NOT NULL,        -- ex: STATUS, APROVACAO, AUTOMACAO, LEMBRETE
+  mensagem   TEXT        NOT NULL,
+  lida       BOOLEAN     NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_notif_user ON task_notifications(user_id, lida);
+ALTER TABLE task_notifications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "notif_all" ON task_notifications;
+CREATE POLICY "notif_all" ON task_notifications FOR ALL USING (true) WITH CHECK (true);
+
+-- 10. Regras de automação internas (sem publicação externa — conformidade LGPD/ISO)
+CREATE TABLE IF NOT EXISTS automation_rules (
+  id          TEXT        PRIMARY KEY,
+  nome        TEXT        NOT NULL,
+  campaign_id TEXT        REFERENCES campaigns(id) ON DELETE CASCADE,
+  team_id     TEXT        REFERENCES teams(id) ON DELETE CASCADE,
+  gatilho     TEXT        NOT NULL,       -- ex: 'STATUS=CONCLUIDO', 'APROVACAO=APROVADO'
+  acao        TEXT        NOT NULL
+                          CHECK (acao IN ('NOTIFICAR','MOVER_STATUS','CRIAR_CHECKLIST','LEMBRETE_PUBLICACAO')),
+  config      JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  ativo       BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_automation_campaign ON automation_rules(campaign_id);
+ALTER TABLE automation_rules ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "automation_all" ON automation_rules;
+CREATE POLICY "automation_all" ON automation_rules FOR ALL USING (true) WITH CHECK (true);

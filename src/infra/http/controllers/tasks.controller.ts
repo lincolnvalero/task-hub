@@ -6,6 +6,7 @@ import { PrismaTeamsRepository } from '../../database/repositories/prisma-teams.
 import { PrismaUsersRepository } from '../../database/repositories/prisma-users.repository'
 import { CreateTaskUseCase } from '../../../core/use-cases/create-task.use-case'
 import { UpdateTaskStatusUseCase } from '../../../core/use-cases/update-task-status.use-case'
+import { notifyUsers } from '../../notifications'
 
 const CANAL_ENUM = z.enum(['INSTAGRAM','YOUTUBE','TIKTOK','LINKEDIN','WHATSAPP','SITE','EMAIL','EVENTO','APRESENTACAO','OUTRO'])
 
@@ -16,6 +17,10 @@ const createTaskSchema = z.object({
   tipo_tarefa:           z.string().max(100).optional(),
   solicitante:           z.string().max(100).optional(),
   canal:                 CANAL_ENUM.optional(),
+  campaign_id:           z.string().min(1).optional(),
+  local:                 z.string().max(300).optional(),
+  lat:                   z.coerce.number().optional(),
+  lng:                   z.coerce.number().optional(),
   data_inicio_planejado: z.coerce.date().optional(),
   data_fim_planejado:    z.coerce.date().optional(),
   team_ids:              z.array(z.string().min(1)).min(1),
@@ -96,13 +101,38 @@ export async function tasksRoutes(app: FastifyInstance) {
     const body = updateStatusSchema.safeParse(request.body)
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
 
-    const useCase = new UpdateTaskStatusUseCase(new PrismaTasksRepository())
+    const tasksRepo = new PrismaTasksRepository()
+    const useCase = new UpdateTaskStatusUseCase(tasksRepo)
     const result  = await useCase.execute({
       task_id:                request.params.id,
       new_status:             body.data.status,
       data_conclusao_efetiva: body.data.data_conclusao_efetiva,
     })
     if (!result.ok) return reply.status(422).send({ error: result.error.message })
+
+    // Automação interna (sem publicação externa): notifica responsáveis sobre o novo status
+    try {
+      const task = await tasksRepo.findById(request.params.id)
+      const actorId = (request.user as { sub: string }).sub
+      const userIds = Array.from(new Set((task?.assignments ?? [])
+        .map((a: any) => a.user_id).filter((id: string) => id && id !== actorId)))
+      const titulo = task?.titulo ?? 'tarefa'
+      const labels: Record<string, string> = {
+        BACKLOG:'Backlog', A_FAZER:'A fazer', EM_ANDAMENTO:'Em andamento', REVISAO:'Revisão', CONCLUIDO:'Concluído',
+      }
+      if (body.data.status === 'REVISAO') {
+        await notifyUsers(userIds, request.params.id, 'STATUS', `"${titulo}" está pronta para revisão.`)
+      } else if (body.data.status === 'CONCLUIDO') {
+        await notifyUsers(userIds, request.params.id, 'STATUS', `"${titulo}" foi concluída.`)
+        // Lembrete de publicação (interno) quando há horário definido — nunca publica sozinho
+        if ((task as any)?.hora_publicacao) {
+          await notifyUsers(userIds, request.params.id, 'LEMBRETE',
+            `Lembrete: "${titulo}" pronta para publicar às ${(task as any).hora_publicacao} (publicação manual).`)
+        }
+      } else {
+        await notifyUsers(userIds, request.params.id, 'STATUS', `"${titulo}" mudou para ${labels[body.data.status] ?? body.data.status}.`)
+      }
+    } catch { /* notificação é best-effort */ }
 
     return reply.send(result.value)
   })
@@ -131,6 +161,11 @@ export async function tasksRoutes(app: FastifyInstance) {
       link_frameio:          z.string().url().max(2000).optional().nullable(),
       hora_publicacao:       z.string().max(5).optional().nullable(),
       production_days:       z.coerce.number().int().min(1).max(365).optional().nullable(),
+      campaign_id:           z.string().min(1).optional().nullable(),
+      roteiro:               z.string().max(20000).optional().nullable(),
+      local:                 z.string().max(300).optional().nullable(),
+      lat:                   z.coerce.number().optional().nullable(),
+      lng:                   z.coerce.number().optional().nullable(),
     })
 
     const body = updateFieldsSchema.safeParse(request.body)
@@ -140,8 +175,23 @@ export async function tasksRoutes(app: FastifyInstance) {
     const task = await tasksRepo.findById(request.params.id)
     if (!task) return reply.status(404).send({ error: 'Tarefa não encontrada.' })
 
+    // Roteiro colaborativo: grava revisão quando o conteúdo muda
+    if (body.data.roteiro !== undefined && body.data.roteiro !== (task as any).roteiro) {
+      const autorId = (request.user as { sub: string }).sub
+      if (body.data.roteiro) {
+        await tasksRepo.addRoteiroRevision(request.params.id, autorId, body.data.roteiro)
+      }
+    }
+
     const updated = await tasksRepo.update(request.params.id, body.data)
     return reply.send(updated)
+  })
+
+  // GET /tasks/:id/roteiro/revisions — histórico do roteiro colaborativo
+  app.get<{ Params: { id: string } }>('/tasks/:id/roteiro/revisions', { preHandler: requireAuth }, async (request, reply) => {
+    const tasksRepo = new PrismaTasksRepository()
+    const revs = await tasksRepo.listRoteiroRevisions(request.params.id)
+    return reply.send(revs)
   })
 
   // POST /tasks/:id/comments — adicionar comentário
@@ -214,5 +264,50 @@ export async function tasksRoutes(app: FastifyInstance) {
 
     const result = await tasksRepo.toggleVote(request.params.id, payload.sub)
     return reply.send(result)
+  })
+
+  // POST /tasks/:id/approvals — registrar peça para aprovação
+  app.post<{ Params: { id: string } }>('/tasks/:id/approvals', { preHandler: requireAuth }, async (request, reply) => {
+    const schema = z.object({ asset_url: z.string().url().max(2000) })
+    const body = schema.safeParse(request.body)
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
+
+    const tasksRepo = new PrismaTasksRepository()
+    const task = await tasksRepo.findById(request.params.id)
+    if (!task) return reply.status(404).send({ error: 'Tarefa não encontrada.' })
+
+    const result = await tasksRepo.addApproval(request.params.id, body.data.asset_url)
+    return reply.status(201).send(result)
+  })
+
+  // PATCH /approvals/:id — aprovar ou pedir ajustes (líder/cliente)
+  app.patch<{ Params: { id: string } }>('/approvals/:id', { preHandler: requireAuth }, async (request, reply) => {
+    const schema = z.object({
+      status: z.enum(['PENDENTE', 'APROVADO', 'AJUSTES']),
+      nota:   z.string().max(1000).optional(),
+    })
+    const body = schema.safeParse(request.body)
+    if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
+
+    const tasksRepo = new PrismaTasksRepository()
+    const taskId = await tasksRepo.findApprovalTaskId(request.params.id)
+    if (!taskId) return reply.status(404).send({ error: 'Aprovação não encontrada.' })
+
+    const reviewerId = (request.user as { sub: string }).sub
+    await tasksRepo.updateApproval(request.params.id, {
+      status: body.data.status,
+      nota:   body.data.nota,
+      reviewer_id: reviewerId,
+    })
+
+    // Notifica responsáveis da tarefa sobre a decisão (in-app, sem publicação externa)
+    try {
+      const task = await tasksRepo.findById(taskId)
+      const userIds = Array.from(new Set((task?.assignments ?? []).map((a: any) => a.user_id).filter(Boolean)))
+      const verbo = body.data.status === 'APROVADO' ? 'aprovou' : body.data.status === 'AJUSTES' ? 'pediu ajustes em' : 'revisou'
+      await notifyUsers(userIds, taskId, 'APROVACAO', `Cliente ${verbo} uma peça de "${task?.titulo ?? 'tarefa'}".`)
+    } catch { /* notificação é best-effort */ }
+
+    return reply.send({ message: 'Aprovação atualizada.' })
   })
 }

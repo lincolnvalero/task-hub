@@ -97,6 +97,18 @@ model Task {
   hora_publicacao  String?   // ex: "14:30"
   production_days  Int?
 
+  // Roteiro colaborativo
+  roteiro     String?
+
+  // Localização do evento (mapa)
+  local       String?
+  lat         Float?
+  lng         Float?
+
+  // Campanha (agrupamento de tarefas + assets compartilhados)
+  campaign    Campaign? @relation(fields: [campaign_id], references: [id])
+  campaign_id String?
+
   data_inicio_planejado  DateTime?
   data_fim_planejado     DateTime?
   data_conclusao_efetiva DateTime?
@@ -105,14 +117,118 @@ model Task {
   updated_at DateTime  @updatedAt
   deleted_at DateTime?
 
-  comments    TaskComment[]
-  assignments TaskAssignment[]
+  comments         TaskComment[]
+  assignments      TaskAssignment[]
+  approvals        AssetApproval[]
+  roteiro_revisions RoteiroRevision[]
+  notifications    TaskNotification[]
 
   @@index([status])
   @@index([canal])
+  @@index([campaign_id])
   @@index([data_fim_planejado])
   @@index([deleted_at])
   @@map("tasks")
+}
+
+// ============================================================
+// CAMPANHAS, APROVAÇÕES, ROTEIRO, NOTIFICAÇÕES, AUTOMAÇÕES
+// ============================================================
+
+model Campaign {
+  id          String   @id @default(cuid())
+  nome        String
+  descricao   String?
+  cor         String?
+  data_evento DateTime?
+  local       String?
+  lat         Float?
+  lng         Float?
+  link_assets Json     @default("[]") // [{nome, url}] compartilhados entre tarefas
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  tasks       Task[]
+  automations AutomationRule[]
+
+  @@index([deleted_at])
+  @@map("campaigns")
+}
+
+model AssetApproval {
+  id          String          @id @default(cuid())
+  task        Task            @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  task_id     String
+  asset_url   String
+  status      ApprovalDecision @default(PENDENTE)
+  nota        String?
+  reviewer_id String?
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@index([task_id])
+  @@map("asset_approvals")
+}
+
+enum ApprovalDecision {
+  PENDENTE
+  APROVADO
+  AJUSTES
+}
+
+model RoteiroRevision {
+  id        String   @id @default(cuid())
+  task      Task     @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  task_id   String
+  autor_id  String?
+  conteudo  String
+
+  created_at DateTime @default(now())
+
+  @@index([task_id])
+  @@map("roteiro_revisions")
+}
+
+model TaskNotification {
+  id        String   @id @default(cuid())
+  user_id   String
+  task      Task?    @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  task_id   String?
+  tipo      String   // STATUS, APROVACAO, AUTOMACAO, LEMBRETE
+  mensagem  String
+  lida      Boolean  @default(false)
+
+  created_at DateTime @default(now())
+
+  @@index([user_id, lida])
+  @@map("task_notifications")
+}
+
+model AutomationRule {
+  id          String   @id @default(cuid())
+  nome        String
+  campaign    Campaign? @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  campaign_id String?
+  team_id     String?
+  gatilho     String   // ex: 'STATUS=CONCLUIDO', 'APROVACAO=APROVADO'
+  acao        AutomationAction
+  config      Json     @default("{}")
+  ativo       Boolean  @default(true)
+
+  created_at DateTime @default(now())
+
+  @@index([campaign_id])
+  @@map("automation_rules")
+}
+
+enum AutomationAction {
+  NOTIFICAR
+  MOVER_STATUS
+  CRIAR_CHECKLIST
+  LEMBRETE_PUBLICACAO
 }
 
 enum TaskStatus {

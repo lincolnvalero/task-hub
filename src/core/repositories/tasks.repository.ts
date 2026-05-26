@@ -7,6 +7,10 @@ export interface CreateTaskDTO {
   tipo_tarefa?: string
   solicitante?: string
   canal?: string
+  campaign_id?: string
+  local?: string
+  lat?: number
+  lng?: number
   data_inicio_planejado?: Date
   data_fim_planejado?: Date
   team_ids: string[]
@@ -21,6 +25,11 @@ export interface UpdateTaskDTO {
   tipo_tarefa?: string
   solicitante?: string
   canal?: string
+  campaign_id?: string | null
+  roteiro?: string | null
+  local?: string | null
+  lat?: number | null
+  lng?: number | null
   data_inicio_planejado?: Date
   data_fim_planejado?: Date
   data_conclusao_efetiva?: Date

@@ -13,6 +13,8 @@ import { teamsRoutes } from './infra/http/controllers/teams.controller'
 import { tasksRoutes } from './infra/http/controllers/tasks.controller'
 import { externalRoutes } from './infra/http/controllers/external.controller'
 import { dashboardRoutes } from './infra/http/controllers/dashboard.controller'
+import { campaignsRoutes } from './infra/http/controllers/campaigns.controller'
+import { notificationsRoutes } from './infra/http/controllers/notifications.controller'
 
 export const app = Fastify({ logger: true, pluginTimeout: 30000 })
 
@@ -52,6 +54,8 @@ export async function setupApp() {
   await app.register(tasksRoutes)
   await app.register(externalRoutes)
   await app.register(dashboardRoutes)
+  await app.register(campaignsRoutes)
+  await app.register(notificationsRoutes)
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
 
