@@ -87,9 +87,18 @@ model Task {
   prioridade  TaskPriority @default(MEDIA)
   tipo_tarefa String?
   solicitante String?
+  canal       String?      // Canal de publicação: INSTAGRAM, YOUTUBE, TIKTOK, etc.
 
-  data_inicio_planejado DateTime?
-  data_fim_planejado    DateTime?
+  // Links de produção
+  link_gdrive      String?
+  link_frameio     String?
+
+  // Agendamento e produção
+  hora_publicacao  String?   // ex: "14:30"
+  production_days  Int?
+
+  data_inicio_planejado  DateTime?
+  data_fim_planejado     DateTime?
   data_conclusao_efetiva DateTime?
 
   created_at DateTime  @default(now())
@@ -100,6 +109,7 @@ model Task {
   assignments TaskAssignment[]
 
   @@index([status])
+  @@index([canal])
   @@index([data_fim_planejado])
   @@index([deleted_at])
   @@map("tasks")
