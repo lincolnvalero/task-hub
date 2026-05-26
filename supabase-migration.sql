@@ -2,6 +2,9 @@
 -- Task-Hub — Feature Migration
 -- Execute no Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/glrtianpnezeyxcjhxus/sql/new
+--
+-- NOTA: Prisma usa cuid() (TEXT) para todos os IDs.
+-- Colunas de FK para tabelas gerenciadas pelo Prisma devem ser TEXT.
 -- ============================================================
 
 -- 1. Novos campos na tabela tasks
@@ -19,12 +22,13 @@ ALTER TABLE tasks
   ADD COLUMN IF NOT EXISTS production_days  INTEGER;
 
 -- 2. Checklists de produção por tarefa
+-- task_id e assignee_id são TEXT porque tasks.id e users.id são cuid() (TEXT)
 CREATE TABLE IF NOT EXISTS task_checklist_items (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id     UUID        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  task_id     TEXT        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
   texto       TEXT        NOT NULL CHECK (char_length(texto) BETWEEN 1 AND 500),
   done        BOOLEAN     NOT NULL DEFAULT FALSE,
-  assignee_id UUID        REFERENCES users(id) ON DELETE SET NULL,
+  assignee_id TEXT        REFERENCES users(id) ON DELETE SET NULL,
   deadline    DATE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -36,10 +40,11 @@ CREATE POLICY "checklist_all" ON task_checklist_items
   FOR ALL USING (true) WITH CHECK (true);
 
 -- 3. Votos por tarefa (enquetes)
+-- task_id e user_id são TEXT porque tasks.id e users.id são cuid() (TEXT)
 CREATE TABLE IF NOT EXISTS task_votes (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id    UUID        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  task_id    TEXT        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id    TEXT        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (task_id, user_id)
 );
@@ -50,16 +55,18 @@ CREATE POLICY "votes_all" ON task_votes
   FOR ALL USING (true) WITH CHECK (true);
 
 -- 4. Formulário de briefing público
+-- team_id e task_id são TEXT porque teams.id e tasks.id são cuid() (TEXT)
+-- id da briefing_requests usa TEXT pois o backend insere via randomUUID() como string
 CREATE TABLE IF NOT EXISTS briefing_requests (
-  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  id          TEXT        PRIMARY KEY,
   nome        TEXT        NOT NULL CHECK (char_length(nome) BETWEEN 2 AND 200),
   email       TEXT        NOT NULL,
   tipo        TEXT        NOT NULL,
   canal       TEXT,
   descricao   TEXT        NOT NULL CHECK (char_length(descricao) BETWEEN 10 AND 3000),
   data_evento DATE,
-  team_id     UUID        REFERENCES teams(id) ON DELETE SET NULL,
-  task_id     UUID        REFERENCES tasks(id) ON DELETE SET NULL,
+  team_id     TEXT        REFERENCES teams(id) ON DELETE SET NULL,
+  task_id     TEXT        REFERENCES tasks(id) ON DELETE SET NULL,
   status      TEXT        NOT NULL DEFAULT 'PENDENTE'
                           CHECK (status IN ('PENDENTE','CONVERTIDO','REJEITADO')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
