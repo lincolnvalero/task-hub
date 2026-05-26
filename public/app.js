@@ -531,20 +531,27 @@ function populateUserFilter() {
 }
 
 /* ── Kanban render ─────────────────────────────────────────────── */
+// Backlog e "A fazer" são mescladas em uma única coluna (drop → A_FAZER)
+const KANBAN_COLUMNS = [
+  { label:'Backlog / A fazer', statuses:['BACKLOG','A_FAZER'], dropStatus:'A_FAZER' },
+  { label:'Em andamento',      statuses:['EM_ANDAMENTO'],      dropStatus:'EM_ANDAMENTO' },
+  { label:'Revisão',           statuses:['REVISAO'],           dropStatus:'REVISAO' },
+  { label:'Concluído',         statuses:['CONCLUIDO'],         dropStatus:'CONCLUIDO' },
+]
 function renderKanban() {
   const board = $('#kanbanBoard')
   const filtered = getFilteredTasks()
   const byStatus = Object.fromEntries(STATUS_ORDER.map(s => [s,[]]))
   filtered.forEach(t => { if (byStatus[t.status]) byStatus[t.status].push(t) })
   board.innerHTML = ''
-  for (const status of STATUS_ORDER) {
-    const tasks = byStatus[status]
+  for (const column of KANBAN_COLUMNS) {
+    const tasks = column.statuses.flatMap(s => byStatus[s])
     const col = document.createElement('div')
     col.className = 'kanban-col'
-    col.dataset.status = status
+    col.dataset.status = column.dropStatus
     col.innerHTML = `
       <div class="col-header">
-        <span class="col-title">${STATUS_LABELS[status]}</span>
+        <span class="col-title">${column.label}</span>
         <span class="col-count">${tasks.length}</span>
       </div>
       <div class="col-body"></div>`
@@ -2034,48 +2041,63 @@ function ensureLeaflet() {
 }
 async function loadMap() {
   try {
-    if (!state.allTasks.length) { const b = await api('/tasks/kanban'); state.allTasks = Object.values(b).flat() }
-    if (!state.campaigns.length) { try { state.campaigns = await api('/campaigns') } catch {} }
-  } catch (err) { toast(err.message, 'error') }
-  // pontos: tarefas e campanhas com lat/lng
-  const points = []
-  state.allTasks.forEach(t => { if (t.lat != null && t.lng != null) points.push({ kind:'tarefa', id:t.id, title:t.titulo, addr:t.local, lat:t.lat, lng:t.lng }) })
-  state.campaigns.forEach(c => { if (c.lat != null && c.lng != null) points.push({ kind:'campanha', id:c.id, title:c.nome, addr:c.local, lat:c.lat, lng:c.lng }) })
-  const withAddr = [
-    ...state.allTasks.filter(t => t.local).map(t => ({ kind:'tarefa', id:t.id, title:t.titulo, addr:t.local, lat:t.lat, lng:t.lng })),
-    ...state.campaigns.filter(c => c.local).map(c => ({ kind:'campanha', id:c.id, title:c.nome, addr:c.local, lat:c.lat, lng:c.lng })),
-  ]
-  // lista textual (sempre)
-  const list = $('#mapList')
-  if (list) {
-    list.innerHTML = withAddr.length
-      ? withAddr.map(p => `<div class="map-list-item" data-kind="${p.kind}" data-id="${p.id}">
-          <svg class="map-list-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          <div class="map-list-body"><div class="map-list-title">${escapeHtml(p.title)} <span class="muted" style="font-size:.75rem">· ${p.kind}</span></div>
-          <div class="map-list-addr">${escapeHtml(p.addr || 'Sem endereço')}</div></div>
-        </div>`).join('')
-      : '<div class="empty-state">Nenhuma tarefa ou campanha com endereço definido. Adicione um <strong>Local</strong> ao criar/editar.</div>'
-    $$('.map-list-item', list).forEach(el => el.addEventListener('click', () => {
-      if (el.dataset.kind === 'tarefa') { navigate('tasks'); openPanel(el.dataset.id) }
-      else openCampaignPanel(el.dataset.id)
-    }))
+    if (!(state.allTasks || []).length) {
+      const b = await api('/tasks/kanban')
+      state.allTasks = b ? Object.values(b).flat() : []
+    }
+    if (!(state.campaigns || []).length) {
+      try { const c = await api('/campaigns'); state.campaigns = Array.isArray(c) ? c : [] } catch {}
+    }
+
+    const tasks = Array.isArray(state.allTasks) ? state.allTasks : []
+    const camps = Array.isArray(state.campaigns) ? state.campaigns : []
+
+    // pontos com coordenadas (para o mapa interativo)
+    const points = []
+    tasks.forEach(t => { if (t && t.lat != null && t.lng != null) points.push({ kind:'tarefa', id:t.id, title:t.titulo, addr:t.local, lat:+t.lat, lng:+t.lng }) })
+    camps.forEach(c => { if (c && c.lat != null && c.lng != null) points.push({ kind:'campanha', id:c.id, title:c.nome, addr:c.local, lat:+c.lat, lng:+c.lng }) })
+    // itens com endereço (para a lista textual)
+    const withAddr = [
+      ...tasks.filter(t => t && t.local).map(t => ({ kind:'tarefa', id:t.id, title:t.titulo, addr:t.local })),
+      ...camps.filter(c => c && c.local).map(c => ({ kind:'campanha', id:c.id, title:c.nome, addr:c.local })),
+    ]
+
+    const list = $('#mapList')
+    if (list) {
+      list.innerHTML = withAddr.length
+        ? withAddr.map(p => `<div class="map-list-item" data-kind="${p.kind}" data-id="${p.id}">
+            <svg class="map-list-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <div class="map-list-body"><div class="map-list-title">${escapeHtml(p.title)} <span class="muted" style="font-size:.75rem">· ${p.kind}</span></div>
+            <div class="map-list-addr">${escapeHtml(p.addr || 'Sem endereço')}</div></div>
+          </div>`).join('')
+        : '<div class="empty-state">Nenhuma tarefa ou campanha com endereço definido. Adicione um <strong>Local</strong> (e opcionalmente coordenadas) ao criar/editar.</div>'
+      $$('.map-list-item', list).forEach(el => el.addEventListener('click', () => {
+        if (el.dataset.kind === 'tarefa') { navigate('tasks'); openPanel(el.dataset.id) }
+        else openCampaignPanel(el.dataset.id)
+      }))
+    }
+
+    // mapa interativo só quando há coordenadas
+    const wrap = $('#mapWrap')
+    if (!points.length) { if (wrap) wrap.hidden = true; return }
+    if (wrap) wrap.hidden = false
+
+    const ok = await ensureLeaflet()
+    const canvas = $('#mapCanvas')
+    if (!ok || !window.L || !canvas) { if (wrap) wrap.hidden = true; return }
+    if (_leafletMap) { _leafletMap.remove(); _leafletMap = null }
+    _leafletMap = window.L.map(canvas).setView([points[0].lat, points[0].lng], 11)
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap',
+    }).addTo(_leafletMap)
+    points.forEach(p => {
+      window.L.marker([p.lat, p.lng]).addTo(_leafletMap)
+        .bindPopup(`<strong>${escapeHtml(p.title)}</strong><br>${escapeHtml(p.addr || '')}`)
+    })
+    setTimeout(() => { try { _leafletMap && _leafletMap.invalidateSize() } catch {} }, 200)
+  } catch (err) {
+    toast('Não foi possível carregar o mapa: ' + (err?.message || err), 'error')
   }
-  // mapa interativo só se houver coordenadas
-  const ok = await ensureLeaflet()
-  const canvas = $('#mapCanvas')
-  if (!ok || !window.L || !canvas) { if (canvas) canvas.style.display = 'none'; return }
-  canvas.style.display = points.length ? 'block' : 'none'
-  if (!points.length) return
-  if (_leafletMap) { _leafletMap.remove(); _leafletMap = null }
-  _leafletMap = window.L.map(canvas).setView([points[0].lat, points[0].lng], 11)
-  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '© OpenStreetMap',
-  }).addTo(_leafletMap)
-  points.forEach(p => {
-    window.L.marker([p.lat, p.lng]).addTo(_leafletMap)
-      .bindPopup(`<strong>${escapeHtml(p.title)}</strong><br>${escapeHtml(p.addr||'')}`)
-  })
-  setTimeout(() => _leafletMap && _leafletMap.invalidateSize(), 200)
 }
 $('#refreshMapBtn')?.addEventListener('click', loadMap)
 
