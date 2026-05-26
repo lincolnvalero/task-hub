@@ -186,9 +186,12 @@
         <section id="teamsView" class="view" hidden>
           <div class="section-header">
             <h2>Equipes</h2>
-            <button id="newTeamBtn" class="btn-primary">+ Nova equipe</button>
+            <button id="newTeamBtn" class="btn-primary admin-only">+ Nova equipe</button>
           </div>
-          <div id="teamList" class="card-list-wrap"></div>
+          <div class="team-filter-bar">
+            <input id="teamSearch" class="team-search-input" placeholder="Buscar equipe…" autocomplete="off" />
+          </div>
+          <div id="teamGrid" class="teams-grid"></div>
         </section>
 
         <!-- USERS -->
@@ -209,6 +212,47 @@
 
       </main>
     </div>
+  </div>
+
+  <!-- TEAM DETAIL PANEL -->
+  <div id="teamDetailOverlay" class="panel-overlay" hidden>
+    <div class="panel-backdrop" id="teamPanelBackdrop"></div>
+    <aside class="team-detail-panel">
+      <div class="tdp-header">
+        <div id="tdpColorDot" class="tdp-color-dot"></div>
+        <h2 id="tdpName" class="tdp-name" contenteditable="plaintext-only" data-placeholder="Nome da equipe"></h2>
+        <button id="closeTeamPanelBtn" class="icon-btn panel-close" title="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="tdp-stats-row" id="tdpStats"></div>
+      <div class="tdp-scroll">
+        <div class="tdp-section">
+          <div class="tdp-section-header">
+            <span class="section-label">Membros</span>
+            <span id="tdpMemberCount" class="count-badge"></span>
+          </div>
+          <div id="tdpMemberSearch" class="member-search-wrap">
+            <input id="tdpMemberInput" class="member-search-input" placeholder="Adicionar membro…" autocomplete="off" />
+            <div id="tdpMemberDropdown" class="member-search-dropdown" hidden></div>
+          </div>
+          <div id="tdpMemberList" class="tdp-member-list"></div>
+        </div>
+        <div class="tdp-section">
+          <div class="tdp-section-header">
+            <span class="section-label">Tarefas da equipe</span>
+            <span id="tdpTaskCount" class="count-badge"></span>
+          </div>
+          <div id="tdpTaskList" class="tdp-task-list"></div>
+        </div>
+      </div>
+      <div class="tdp-footer">
+        <button id="tdpDeleteBtn" class="btn-danger-ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          Excluir equipe
+        </button>
+      </div>
+    </aside>
   </div>
 
   <!-- TASK DETAIL PANEL -->
@@ -327,18 +371,7 @@
     </form>
   </dialog>
 
-  <dialog id="collabDialog">
-    <form>
-      <h3 id="collabTitle">Colaboradores</h3>
-      <p class="muted">Marque os usuários que fazem parte desta equipe.</p>
-      <div id="collabList" class="collab-list"></div>
-      <div class="dialog-actions">
-        <button type="button" id="closeCollabBtn" class="btn-primary">Concluído</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="userDialog">
+<dialog id="userDialog">
     <form id="userForm">
       <h3 id="userDialogTitle">Novo usuário</h3>
       <input type="hidden" id="userId" />

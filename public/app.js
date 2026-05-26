@@ -675,34 +675,261 @@ $('#taskForm').addEventListener('submit', async e => {
 })
 
 /* ── Teams ─────────────────────────────────────────────────────── */
-async function loadTeams() {
-  const wrap = $('#teamList')
-  wrap.innerHTML = '<p class="muted">Carregando…</p>'
-  try {
-    state.teams = await api('/teams')
-    if (!state.teams.length) {
-      wrap.innerHTML = '<div class="empty-state">Nenhuma equipe. Clique em <strong>+ Nova equipe</strong> para começar.</div>'
-      return
-    }
-    wrap.innerHTML = state.teams.map(t => {
-      const c = (t.collaborators||[]).length
-      return `<div class="team-row">
-        <div><strong>${escapeHtml(t.nome)}</strong>
-          <div class="meta">${c} colaborador${c===1?'':'es'}</div>
-        </div>
-        <div class="team-actions">
-          <button class="btn-outline btn-sm" data-manage="${t.id}">Gerenciar membros</button>
-          <button class="btn-outline-danger btn-sm" data-del-team="${t.id}">Excluir</button>
-        </div>
-      </div>`}).join('')
-    $$('[data-manage]').forEach(b => b.addEventListener('click', () => openCollabDialog(b.dataset.manage)))
-    $$('[data-del-team]').forEach(b => b.addEventListener('click', async () => {
-      if (!await confirmDialog('Excluir esta equipe?')) return
-      try { await api('/teams/'+b.dataset.delTeam,{method:'DELETE'}); toast('Equipe excluída.','success'); loadTeams() }
-      catch (err) { toast(err.message,'error') }
-    }))
-  } catch (err) { wrap.innerHTML = `<p class="muted">${err.message}</p>` }
+const TEAM_COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#06b6d4','#f43f5e']
+function getTeamColor(name) {
+  let h = 0
+  for (let i = 0; i < (name||'').length; i++) h = (h*31 + name.charCodeAt(i)) >>> 0
+  return TEAM_COLORS[h % TEAM_COLORS.length]
 }
+function getTeamTaskStats(teamId) {
+  const now = new Date(); now.setHours(0,0,0,0)
+  const tasks = state.allTasks.filter(t =>
+    (t.assignments||[]).some(a => a.team_id === teamId)
+  )
+  const active  = tasks.filter(t => t.status !== 'CONCLUIDO').length
+  const overdue = tasks.filter(t =>
+    t.status !== 'CONCLUIDO' && t.data_fim_planejado && new Date(t.data_fim_planejado) < now
+  ).length
+  const done    = tasks.filter(t => t.status === 'CONCLUIDO').length
+  return { total: tasks.length, active, overdue, done }
+}
+
+async function loadTeams() {
+  const grid = $('#teamGrid')
+  grid.innerHTML = '<p class="muted">Carregando…</p>'
+  try {
+    const [teams] = await Promise.all([
+      api('/teams'),
+      state.allTasks.length
+        ? Promise.resolve()
+        : api('/tasks/kanban').then(b => { state.allTasks = Object.values(b).flat() }),
+    ])
+    state.teams = teams
+    renderTeamGrid(state.teams)
+    setupTeamSearch()
+  } catch (err) { grid.innerHTML = `<p class="muted">${err.message}</p>` }
+}
+
+function renderTeamGrid(teams) {
+  const grid = $('#teamGrid')
+  if (!teams.length) {
+    grid.innerHTML = '<div class="empty-state">Nenhuma equipe. Clique em <strong>+ Nova equipe</strong> para começar.</div>'
+    return
+  }
+  grid.innerHTML = teams.map(t => {
+    const color   = getTeamColor(t.nome)
+    const members = (t.collaborators||[])
+    const visible = members.slice(0,4)
+    const overflow = members.length - visible.length
+    const stats   = getTeamTaskStats(t.id)
+    const avatarsHtml = visible.map(m => {
+      const n = (m.user||{}).nome || '?'
+      return `<span class="tc-avatar" style="background:${getAvatarColor(n)}" title="${escapeHtml(n)}">${getInitials(n)}</span>`
+    }).join('') + (overflow > 0 ? `<span class="tc-avatar tc-avatar-overflow">+${overflow}</span>` : '')
+    return `<div class="team-card" data-team-id="${t.id}" style="--tc-color:${color}">
+      <div class="tc-header">
+        <div class="tc-name">${escapeHtml(t.nome)}</div>
+        <div class="tc-color-dot"></div>
+      </div>
+      <div class="tc-stats">
+        <div class="tc-stat">
+          <div class="tc-stat-value">${stats.active}</div>
+          <div class="tc-stat-label">Ativas</div>
+        </div>
+        <div class="tc-stat ${stats.overdue > 0 ? 'danger' : ''}">
+          <div class="tc-stat-value">${stats.overdue}</div>
+          <div class="tc-stat-label">Vencidas</div>
+        </div>
+        <div class="tc-stat success">
+          <div class="tc-stat-value">${stats.done}</div>
+          <div class="tc-stat-label">Concluídas</div>
+        </div>
+      </div>
+      <div class="tc-footer">
+        <div class="tc-avatars">${avatarsHtml || '<span style="font-size:.75rem;color:var(--text-dim)">Sem membros</span>'}</div>
+        <span class="tc-member-count">${members.length} membro${members.length===1?'':'s'}</span>
+      </div>
+    </div>`
+  }).join('')
+  $$('.team-card').forEach(card =>
+    card.addEventListener('click', () => openTeamPanel(card.dataset.teamId))
+  )
+}
+
+function setupTeamSearch() {
+  const input = $('#teamSearch')
+  if (!input) return
+  input.oninput = () => {
+    const q = input.value.trim().toLowerCase()
+    renderTeamGrid(q ? state.teams.filter(t => t.nome.toLowerCase().includes(q)) : state.teams)
+  }
+}
+
+let currentTeamId = null
+async function openTeamPanel(teamId) {
+  currentTeamId = teamId
+  const team = state.teams.find(t => t.id === teamId)
+  if (!team) return
+  const color = getTeamColor(team.nome)
+  $('#tdpColorDot').style.background = color
+  const nameEl = $('#tdpName')
+  nameEl.textContent = team.nome
+  nameEl.contentEditable = isAdmin() ? 'plaintext-only' : 'false'
+  // Stats row
+  const stats = getTeamTaskStats(teamId)
+  $('#tdpStats').innerHTML = [
+    { val: stats.active,  lbl: 'Ativas',    cls: '' },
+    { val: stats.overdue, lbl: 'Vencidas',   cls: stats.overdue > 0 ? 'danger' : '' },
+    { val: stats.done,    lbl: 'Concluídas', cls: 'success' },
+    { val: stats.total,   lbl: 'Total',      cls: '' },
+  ].map(s => `<div class="tdp-stat-item ${s.cls}">
+    <div class="tdp-stat-val">${s.val}</div>
+    <div class="tdp-stat-lbl">${s.lbl}</div>
+  </div>`).join('')
+  // Ensure users loaded
+  if (!state.users.length) state.users = await api('/users')
+  renderTeamPanelMembers(team)
+  renderTeamPanelTasks(teamId)
+  setupMemberSearch(teamId, team)
+  $('#tdpDeleteBtn').hidden = !isAdmin()
+  $('#teamDetailOverlay').hidden = false
+  document.body.style.overflow = 'hidden'
+}
+
+function closeTeamPanel() {
+  $('#teamDetailOverlay').hidden = true
+  document.body.style.overflow  = ''
+  currentTeamId = null
+}
+
+function renderTeamPanelMembers(team) {
+  const members = (team.collaborators || [])
+  $('#tdpMemberCount').textContent = members.length || ''
+  const wrap = $('#tdpMemberList')
+  if (!members.length) {
+    wrap.innerHTML = '<p class="muted" style="font-size:.8rem">Nenhum membro ainda.</p>'
+    return
+  }
+  wrap.innerHTML = members.map(m => {
+    const u = m.user || {}
+    const n = u.nome || '?'
+    return `<div class="tdp-member-row" data-user-id="${m.user_id}">
+      <span class="tc-avatar" style="background:${getAvatarColor(n)};width:28px;height:28px;font-size:.65rem;flex-shrink:0">${getInitials(n)}</span>
+      <span class="tdp-member-name">${escapeHtml(n)}</span>
+      <span class="tdp-member-role">${escapeHtml(u.cargo||u.role||'')}</span>
+      ${isAdmin() ? `<button class="tdp-remove-btn" data-remove="${m.user_id}" title="Remover membro">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>` : ''}
+    </div>`
+  }).join('')
+  if (isAdmin()) {
+    $$('[data-remove]', wrap).forEach(btn => btn.addEventListener('click', async () => {
+      const uid = btn.dataset.remove
+      try {
+        await api('/teams/'+currentTeamId+'/collaborators/'+uid, { method:'DELETE' })
+        const t = state.teams.find(x => x.id === currentTeamId)
+        if (t) t.collaborators = (t.collaborators||[]).filter(c => c.user_id !== uid)
+        renderTeamPanelMembers(t)
+        renderTeamGrid(state.teams)
+        toast('Membro removido.', 'success')
+      } catch (err) { toast(err.message, 'error') }
+    }))
+  }
+}
+
+function renderTeamPanelTasks(teamId) {
+  const tasks = state.allTasks.filter(t =>
+    (t.assignments||[]).some(a => a.team_id === teamId)
+  )
+  $('#tdpTaskCount').textContent = tasks.length || ''
+  const wrap = $('#tdpTaskList')
+  if (!tasks.length) {
+    wrap.innerHTML = '<p class="muted" style="font-size:.8rem">Nenhuma tarefa vinculada.</p>'
+    return
+  }
+  wrap.innerHTML = tasks.slice(0,10).map(t =>
+    `<div class="tdp-task-row" data-id="${t.id}">
+      ${priorityChip(t.prioridade)}
+      <span class="tdp-task-title">${escapeHtml(t.titulo)}</span>
+      ${statusBadge(t.status)}
+    </div>`
+  ).join('')
+  $$('.tdp-task-row', wrap).forEach(row => row.addEventListener('click', () => {
+    closeTeamPanel(); navigate('tasks'); openPanel(row.dataset.id)
+  }))
+}
+
+function setupMemberSearch(teamId, team) {
+  if (!isAdmin()) { $('#tdpMemberSearch').hidden = true; return }
+  $('#tdpMemberSearch').hidden = false
+  const input    = $('#tdpMemberInput')
+  const dropdown = $('#tdpMemberDropdown')
+  input.value    = ''
+  dropdown.hidden = true
+  const memberIds = new Set((team.collaborators||[]).map(c => c.user_id))
+
+  input.oninput = () => {
+    const q = input.value.trim().toLowerCase()
+    if (!q) { dropdown.hidden = true; return }
+    const matches = state.users
+      .filter(u => u.role !== 'GUEST' && (u.nome.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)))
+      .slice(0,6)
+    if (!matches.length) { dropdown.hidden = true; return }
+    dropdown.innerHTML = matches.map(u => {
+      const isMember = memberIds.has(u.id)
+      return `<div class="member-dd-item ${isMember ? 'is-member' : ''}" data-uid="${u.id}">
+        <span class="tc-avatar" style="background:${getAvatarColor(u.nome)};width:24px;height:24px;font-size:.58rem;flex-shrink:0">${getInitials(u.nome)}</span>
+        <span>${escapeHtml(u.nome)}</span>
+        <span style="color:var(--text-muted);font-size:.75rem;margin-left:auto">${isMember ? '✓ membro' : escapeHtml(u.cargo||u.role||'')}</span>
+      </div>`
+    }).join('')
+    dropdown.hidden = false
+    $$('.member-dd-item:not(.is-member)', dropdown).forEach(item => {
+      item.addEventListener('click', async () => {
+        dropdown.hidden = true; input.value = ''
+        const uid = item.dataset.uid
+        try {
+          await api('/teams/'+teamId+'/collaborators', { method:'POST', body:JSON.stringify({ user_id: uid }) })
+          const u = state.users.find(x => x.id === uid)
+          const t = state.teams.find(x => x.id === teamId)
+          if (t && u) {
+            t.collaborators = [...(t.collaborators||[]), { user_id: uid, user: u }]
+            memberIds.add(uid)
+            renderTeamPanelMembers(t)
+            renderTeamGrid(state.teams)
+          }
+          toast('Membro adicionado.', 'success')
+        } catch (err) { toast(err.message, 'error') }
+      })
+    })
+  }
+  input.addEventListener('blur', () => { setTimeout(() => { dropdown.hidden = true }, 150) })
+}
+
+/* Panel close / rename / delete */
+$('#closeTeamPanelBtn').addEventListener('click', closeTeamPanel)
+$('#teamPanelBackdrop').addEventListener('click', closeTeamPanel)
+$('#tdpName').addEventListener('blur', async () => {
+  if (!isAdmin() || !currentTeamId) return
+  const nome = $('#tdpName').textContent.trim()
+  if (!nome || nome.length < 2) return
+  try {
+    await api('/teams/'+currentTeamId, { method:'PATCH', body:JSON.stringify({ nome }) })
+    const t = state.teams.find(x => x.id === currentTeamId)
+    if (t) { t.nome = nome; renderTeamGrid(state.teams) }
+    toast('Nome atualizado.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+})
+$('#tdpDeleteBtn').addEventListener('click', async () => {
+  if (!await confirmDialog('Excluir esta equipe? Esta ação é irreversível.')) return
+  try {
+    await api('/teams/'+currentTeamId, { method:'DELETE' })
+    state.teams = state.teams.filter(t => t.id !== currentTeamId)
+    closeTeamPanel(); renderTeamGrid(state.teams)
+    toast('Equipe excluída.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+})
+
 $('#newTeamBtn').addEventListener('click', () => { $('#teamNome').value=''; $('#teamDialog').showModal() })
 $('#cancelTeamBtn').addEventListener('click', () => $('#teamDialog').close())
 $('#teamForm').addEventListener('submit', async e => {
@@ -711,34 +938,6 @@ $('#teamForm').addEventListener('submit', async e => {
     await api('/teams',{ method:'POST', body:JSON.stringify({ nome:$('#teamNome').value.trim() }) })
     $('#teamDialog').close(); toast('Equipe criada.','success'); loadTeams()
   } catch (err) { toast(err.message,'error') }
-})
-
-let currentTeamId = null
-async function openCollabDialog(teamId) {
-  currentTeamId = teamId
-  const team = state.teams.find(t => t.id === teamId)
-  $('#collabTitle').textContent = 'Colaboradores · ' + (team?.nome||'')
-  const wrap = $('#collabList')
-  wrap.innerHTML = '<p class="muted">Carregando…</p>'
-  $('#collabDialog').showModal()
-  state.users = await api('/users')
-  const memberIds = new Set((team?.collaborators||[]).map(c=>c.user_id))
-  wrap.innerHTML = state.users.filter(u=>u.role!=='GUEST').map(u =>
-    `<label>
-      <input type="checkbox" data-user="${u.id}" ${memberIds.has(u.id)?'checked':''} />
-      ${escapeHtml(u.nome)} <span class="muted">(${escapeHtml(u.email)})</span>
-    </label>`).join('')
-  $$('input[data-user]',wrap).forEach(cb => cb.addEventListener('change', async () => {
-    try {
-      if (cb.checked) await api('/teams/'+teamId+'/collaborators',{ method:'POST', body:JSON.stringify({ user_id:cb.dataset.user }) })
-      else            await api('/teams/'+teamId+'/collaborators/'+cb.dataset.user,{ method:'DELETE' })
-    } catch (err) { toast(err.message,'error'); cb.checked = !cb.checked }
-  }))
-}
-$('#closeCollabBtn').addEventListener('click', async () => {
-  $('#collabDialog').close()
-  state.teams = await api('/teams')
-  loadTeams()
 })
 
 /* ── Users ─────────────────────────────────────────────────────── */
@@ -839,6 +1038,7 @@ document.addEventListener('keydown', e => {
   if (tag==='INPUT'||tag==='TEXTAREA'||document.activeElement?.isContentEditable) return
   if (e.key==='n' && isAdmin() && !$('#appShell').hidden) { e.preventDefault(); $('#newTaskBtn').click() }
   if (e.key==='Escape' && !$('#taskDetailOverlay').hidden) closePanel()
+  if (e.key==='Escape' && !$('#teamDetailOverlay').hidden) closeTeamPanel()
 })
 
 /* ── Init ──────────────────────────────────────────────────────── */
