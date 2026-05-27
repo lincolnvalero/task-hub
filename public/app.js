@@ -2138,7 +2138,7 @@ function renderCalendar() {
     const extra = dayItems.length - shown.length
     html += `<div class="cal-cell ${other?'other-month':''} ${key===todayYmd?'today':''}" data-date="${key}">
       <div class="cal-daynum">${d.getDate()}</div>
-      <button class="cal-add" data-add="${key}" title="Novo evento">+ evento</button>
+      ${isAdmin() ? `<button class="cal-add" data-add="${key}" title="Novo evento">+ evento</button>` : ''}
       <div class="cal-events">
         ${shown.map(it => `<div class="cal-event" data-kind="${it.kind}" data-id="${it.id}" style="--ce-color:${it.color};--ce-bg:${it.color}1a" title="${escapeHtml(it.title)}">
           ${it.time ? `<span class="ce-time">${escapeHtml(it.time)}</span>` : ''}<span>${escapeHtml(it.title)}</span>
