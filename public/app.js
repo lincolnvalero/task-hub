@@ -1483,9 +1483,11 @@ function openUserDialog(user) {
   $('#uCargo').value    = user?.cargo ?? ''
   $('#uIgreja').value   = user?.igreja ?? ''
   $('#uRole').value     = user?.role ?? 'COLLABORATOR'
-  $('#uSenhaLabel').hidden = isEdit
+  $('#uSenhaLabel').hidden = false
+  $('#uSenhaLabelText').textContent = isEdit ? 'Nova senha (deixe em branco para manter)' : 'Senha inicial'
   $('#uSenha').required    = !isEdit
   $('#uSenha').value       = ''
+  $('#uSenha').placeholder = isEdit ? '••••••' : ''
   $('#userFormError').hidden = true
   $('#userDialog').showModal()
 }
@@ -1502,11 +1504,21 @@ $('#userForm').addEventListener('submit', async e => {
     igreja:   $('#uIgreja').value.trim()||undefined,
     role:     $('#uRole').value,
   }
+  const novaSenha = $('#uSenha').value
   try {
-    if (id) await api('/users/'+id, { method:'PATCH', body:JSON.stringify(body) })
-    else { body.senha = $('#uSenha').value; await api('/users',{ method:'POST', body:JSON.stringify(body) }) }
+    if (id) {
+      await api('/users/'+id, { method:'PATCH', body:JSON.stringify(body) })
+      // Senha opcional na edição — usa o endpoint de redefinição de senha (admin)
+      if (novaSenha) {
+        if (novaSenha.length < 6) throw new Error('A nova senha deve ter pelo menos 6 caracteres.')
+        await api('/users/'+id+'/reset-password', { method:'POST', body:JSON.stringify({ nova_senha: novaSenha }) })
+      }
+    } else {
+      body.senha = novaSenha
+      await api('/users',{ method:'POST', body:JSON.stringify(body) })
+    }
     $('#userDialog').close()
-    toast(id ? 'Usuário atualizado.' : 'Usuário criado.','success')
+    toast(id ? (novaSenha ? 'Usuário e senha atualizados.' : 'Usuário atualizado.') : 'Usuário criado.','success')
     loadUsers()
   } catch (err) { $('#userFormError').textContent=err.message; $('#userFormError').hidden=false }
 })
