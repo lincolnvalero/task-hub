@@ -1397,14 +1397,16 @@ dialog select[multiple] { min-height: 100px; }
 .cal-weekdays span:last-child { border-right: none; }
 .cal-grid {
   display: grid; grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 116px;                 /* todas as linhas com a mesma altura */
   border: 1px solid var(--border); border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   overflow: hidden; background: var(--border-subtle);
   gap: 1px;
 }
 .cal-cell {
-  background: var(--surface); min-height: 104px; padding: 6px 7px;
+  background: var(--surface); height: 116px; padding: 6px 7px;
   display: flex; flex-direction: column; gap: 4px;
   position: relative; transition: background 0.12s;
+  overflow: hidden;                      /* corta o excesso sem alterar o tamanho */
 }
 .cal-cell:hover { background: var(--surface-2); }
 .cal-cell.other-month { background: var(--bg); }
@@ -1422,7 +1424,7 @@ dialog select[multiple] { min-height: 100px; }
 }
 .cal-cell:hover .cal-add { opacity: 1; }
 .cal-add:hover { color: var(--primary); }
-.cal-events { display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+.cal-events { display: flex; flex-direction: column; gap: 3px; overflow: hidden; flex: 1; min-height: 0; }
 .cal-event {
   display: flex; align-items: center; gap: 5px;
   font-size: 0.7rem; line-height: 1.25; padding: 2px 6px;
@@ -1436,7 +1438,8 @@ dialog select[multiple] { min-height: 100px; }
 .cal-more { font-size: 0.68rem; color: var(--text-muted); cursor: pointer; padding-left: 6px; }
 .cal-more:hover { color: var(--primary); }
 @media (max-width: 720px) {
-  .cal-cell { min-height: 72px; }
+  .cal-grid { grid-auto-rows: 80px; }
+  .cal-cell { height: 80px; }
   .cal-event { font-size: 0.6rem; }
 }
 
