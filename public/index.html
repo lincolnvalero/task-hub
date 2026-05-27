@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=20260526h" />
+  <link rel="stylesheet" href="/styles.css?v=20260526i" />
 </head>
 <body>
 
@@ -25,7 +25,16 @@
         <p class="lcard-desc">Acesso completo ao painel de gestão, equipes e usuários.</p>
         <form id="loginForm" autocomplete="off">
           <label>E-mail<input type="email" id="email" placeholder="admin@admin.com" required /></label>
-          <label>Senha<input type="password" id="senha" placeholder="••••••••" required /></label>
+          <label>Senha
+            <div class="password-wrap">
+              <input type="password" id="senha" placeholder="••••••••" required />
+              <button type="button" class="pw-toggle" data-target="#senha" aria-label="Mostrar/ocultar senha" title="Mostrar/ocultar senha">
+                <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg class="icon-eyeoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+              </button>
+            </div>
+          </label>
+          <label class="remember-row"><input type="checkbox" id="rememberMe" checked /> Manter conectado</label>
           <button type="submit" class="btn-primary">Entrar</button>
         </form>
       </div>
@@ -814,7 +823,15 @@
           </select>
         </label>
       </div>
-      <label id="uSenhaLabel"><span id="uSenhaLabelText">Senha inicial</span> <input type="password" id="uSenha" minlength="6" autocomplete="new-password" /></label>
+      <label id="uSenhaLabel"><span id="uSenhaLabelText">Senha inicial</span>
+        <div class="password-wrap">
+          <input type="password" id="uSenha" minlength="6" autocomplete="new-password" />
+          <button type="button" class="pw-toggle" data-target="#uSenha" aria-label="Mostrar/ocultar senha" title="Mostrar/ocultar senha">
+            <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="icon-eyeoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+      </label>
       <p id="userFormError" class="form-error" hidden></p>
       <div class="dialog-actions">
         <button type="button" id="cancelUserBtn" class="btn-ghost">Cancelar</button>
@@ -836,6 +853,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260526h"></script>
+  <script src="/app.js?v=20260526i"></script>
 </body>
 </html>

@@ -42,8 +42,8 @@ const STATUS_STYLE = {
 }
 
 const state = {
-  token:        localStorage.getItem(TOKEN_KEY),
-  user:         JSON.parse(localStorage.getItem(USER_KEY) || 'null'),
+  token:        localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY),
+  user:         JSON.parse(localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY) || 'null'),
   allTasks:     [],
   teams:        [],
   users:        [],
@@ -192,14 +192,18 @@ function confirmDialog(msg) {
 }
 
 /* ── Session ───────────────────────────────────────────────────── */
-function saveSession(token, user) {
+function saveSession(token, user, remember = true) {
   state.token = token; state.user = user
-  localStorage.setItem(TOKEN_KEY, token)
-  localStorage.setItem(USER_KEY, JSON.stringify(user))
+  const store = remember ? localStorage : sessionStorage
+  const other = remember ? sessionStorage : localStorage
+  store.setItem(TOKEN_KEY, token)
+  store.setItem(USER_KEY, JSON.stringify(user))
+  other.removeItem(TOKEN_KEY); other.removeItem(USER_KEY)
 }
 function clearSession() {
   state.token = null; state.user = null
   localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY)
+  sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(USER_KEY)
 }
 function isAdmin() { return state.user?.role === 'ADMIN' || state.user?.role === 'MANAGER' }
 
@@ -250,7 +254,7 @@ $('#loginForm').addEventListener('submit', async e => {
       method:'POST',
       body: JSON.stringify({ email:$('#email').value.trim(), senha:$('#senha').value }),
     })
-    saveSession(data.token, data.user); showApp()
+    saveSession(data.token, data.user, $('#rememberMe')?.checked ?? true); showApp()
   } catch (err) {
     $('#loginError').textContent = err.message
     $('#loginError').hidden = false
@@ -260,13 +264,22 @@ $('#guestBtn').addEventListener('click', async () => {
   $('#loginError').hidden = true
   try {
     const data = await api('/auth/guest', { method:'POST' })
-    saveSession(data.token, data.user); showApp()
+    saveSession(data.token, data.user, false); showApp()
   } catch (err) {
     $('#loginError').textContent = err.message
     $('#loginError').hidden = false
   }
 })
 $('#logoutBtn').addEventListener('click', () => { clearSession(); showLogin() })
+
+/* ── Mostrar/ocultar senha (ícone de olho) ─────────────────────── */
+$$('.pw-toggle').forEach(btn => btn.addEventListener('click', () => {
+  const inp = $(btn.dataset.target)
+  if (!inp) return
+  const show = inp.type === 'password'
+  inp.type = show ? 'text' : 'password'
+  btn.classList.toggle('showing', show)
+}))
 
 /* ── Sidebar nav ───────────────────────────────────────────────── */
 $$('.nav-item').forEach(btn => btn.addEventListener('click', () => navigate(btn.dataset.view)))
@@ -1487,6 +1500,8 @@ function openUserDialog(user) {
   $('#uSenhaLabelText').textContent = isEdit ? 'Nova senha (deixe em branco para manter)' : 'Senha inicial'
   $('#uSenha').required    = !isEdit
   $('#uSenha').value       = ''
+  $('#uSenha').type        = 'password'
+  $('#uSenhaLabel .pw-toggle')?.classList.remove('showing')
   $('#uSenha').placeholder = isEdit ? '••••••' : ''
   $('#userFormError').hidden = true
   $('#userDialog').showModal()
