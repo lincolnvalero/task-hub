@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=20260526c" />
+  <link rel="stylesheet" href="/styles.css?v=20260526d" />
 </head>
 <body>
 
@@ -65,9 +65,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6"/></svg>
           <span>Campanhas</span>
         </button>
-        <button class="nav-item admin-only" data-view="map" data-tip="Mapa de eventos">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-          <span>Mapa</span>
+        <button class="nav-item admin-only" data-view="calendar" data-tip="Calendário">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Calendário</span>
         </button>
         <button class="nav-item admin-only" data-view="teams" data-tip="Equipes">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
@@ -339,15 +339,36 @@
           <div id="campaignGrid" class="campaign-grid"></div>
         </section>
 
-        <!-- MAP -->
-        <section id="mapView" class="view" hidden>
+        <!-- CALENDAR -->
+        <section id="calendarView" class="view" hidden>
           <div class="section-header">
-            <h2>Mapa de eventos</h2>
-            <button id="refreshMapBtn" class="btn-ghost btn-sm">↺ Atualizar</button>
+            <h2>Calendário</h2>
+            <button id="newEventBtn" class="btn-primary admin-only">+ Novo evento</button>
           </div>
-          <p class="muted" style="margin-top:-8px;margin-bottom:18px">Localização das tarefas e campanhas com endereço definido.</p>
-          <div id="mapWrap" class="map-wrap"><div id="mapCanvas" class="map-canvas"></div></div>
-          <div id="mapList" class="map-list"></div>
+
+          <div class="cal-toolbar">
+            <div class="cal-nav">
+              <button id="calPrev" class="icon-btn" title="Mês anterior">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <h3 id="calTitle" class="cal-title"></h3>
+              <button id="calNext" class="icon-btn" title="Próximo mês">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+              <button id="calToday" class="btn-ghost btn-sm">Hoje</button>
+            </div>
+            <div class="cal-filters">
+              <label class="cal-filter"><input type="checkbox" id="calShowTasks" checked /> <span class="cf-dot" style="background:#6366f1"></span> Tarefas</label>
+              <label class="cal-filter"><input type="checkbox" id="calShowCampaigns" checked /> <span class="cf-dot" style="background:#E8743B"></span> Campanhas</label>
+              <label class="cal-filter"><input type="checkbox" id="calShowEvents" checked /> <span class="cf-dot" style="background:#16a34a"></span> Eventos</label>
+              <select id="calFilterCampaign" class="filter-select"><option value="">Todas campanhas</option></select>
+            </div>
+          </div>
+
+          <div class="cal-weekdays">
+            <span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span>
+          </div>
+          <div id="calGrid" class="cal-grid"></div>
         </section>
 
       </main>
@@ -735,6 +756,42 @@
     </form>
   </dialog>
 
+  <dialog id="eventDialog">
+    <form id="eventForm">
+      <h3 id="eventDialogTitle">Novo evento</h3>
+      <input type="hidden" id="evId" />
+      <label>Título <input type="text" id="evTitulo" required minlength="1" placeholder="Ex: Reunião de pauta" /></label>
+      <label>Descrição <textarea id="evDescricao" rows="2"></textarea></label>
+      <div class="grid-2">
+        <label>Data <input type="date" id="evData" required /></label>
+        <label>Hora <input type="time" id="evHora" /></label>
+      </div>
+      <div class="grid-2">
+        <label>Local <input type="text" id="evLocal" placeholder="Opcional" /></label>
+        <label>Cor <input type="color" id="evCor" value="#16a34a" style="height:38px;padding:2px" /></label>
+      </div>
+      <label>Campanha
+        <select id="evCampaign"><option value="">— Nenhuma —</option></select>
+      </label>
+      <p id="eventFormError" class="form-error" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" id="evDeleteBtn" class="btn-danger-ghost" hidden>Excluir</button>
+        <button type="button" id="cancelEventBtn" class="btn-ghost">Cancelar</button>
+        <button type="submit" class="btn-primary">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dayEventsDialog" class="confirm-dialog">
+    <div class="confirm-body">
+      <div class="row-between" style="margin-bottom:12px">
+        <h3 id="dayEventsTitle" style="margin:0;font-size:1rem"></h3>
+        <button id="dayEventsClose" class="icon-btn" title="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div id="dayEventsList" class="day-events-list"></div>
+    </div>
+  </dialog>
+
 <dialog id="userDialog">
     <form id="userForm">
       <h3 id="userDialogTitle">Novo usuário</h3>
@@ -779,6 +836,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260526c"></script>
+  <script src="/app.js?v=20260526d"></script>
 </body>
 </html>

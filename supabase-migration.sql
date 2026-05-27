@@ -176,3 +176,22 @@ CREATE INDEX IF NOT EXISTS idx_automation_campaign ON automation_rules(campaign_
 ALTER TABLE automation_rules ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "automation_all" ON automation_rules;
 CREATE POLICY "automation_all" ON automation_rules FOR ALL USING (true) WITH CHECK (true);
+
+-- 11. Eventos de calendário (agenda) — eventos avulsos cadastrados manualmente
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id          TEXT        PRIMARY KEY,
+  titulo      TEXT        NOT NULL CHECK (char_length(titulo) BETWEEN 1 AND 200),
+  descricao   TEXT,
+  data        DATE        NOT NULL,
+  hora        TEXT,                       -- ex: "19:30"
+  local       TEXT,
+  cor         TEXT,                       -- hex p/ a etiqueta
+  campaign_id TEXT        REFERENCES campaigns(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_data ON calendar_events(data);
+ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "calendar_all" ON calendar_events;
+CREATE POLICY "calendar_all" ON calendar_events FOR ALL USING (true) WITH CHECK (true);

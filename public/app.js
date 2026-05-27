@@ -238,7 +238,7 @@ function navigate(view) {
   if (view === 'users')     loadUsers()
   if (view === 'briefings') loadBriefings()
   if (view === 'campaigns') loadCampaigns()
-  if (view === 'map')       loadMap()
+  if (view === 'calendar')  loadCalendar()
 }
 
 /* ── Auth events ───────────────────────────────────────────────── */
@@ -2068,84 +2068,178 @@ function populateCampaignSelect(sel, currentValue) {
     (state.campaigns || []).map(c => `<option value="${c.id}"${c.id===currentValue?' selected':''}>${escapeHtml(c.nome)}</option>`).join('')
 }
 
-/* ── Map view (Leaflet + OpenStreetMap) ────────────────────────── */
-let _leafletMap = null, _leafletLoaded = false
-function ensureLeaflet() {
-  return new Promise((resolve) => {
-    if (window.L) { resolve(true); return }
-    if (_leafletLoaded) { const t = setInterval(() => { if (window.L) { clearInterval(t); resolve(true) } }, 100); return }
-    _leafletLoaded = true
-    const css = document.createElement('link')
-    css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-    document.head.appendChild(css)
-    const s = document.createElement('script')
-    s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-    s.onload = () => resolve(true)
-    s.onerror = () => resolve(false)
-    document.head.appendChild(s)
-  })
+/* ── Calendar (agenda) ─────────────────────────────────────────── */
+const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const CAL_COLORS = { tarefa:'#6366f1', campanha:'#E8743B', evento:'#16a34a' }
+const calState = { ref: new Date(), events: [], filters: { tarefas:true, campanhas:true, eventos:true, campaignId:'' } }
+
+function ymd(d) { // Date -> 'YYYY-MM-DD' (local)
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0')
+  return `${y}-${m}-${day}`
 }
-async function loadMap() {
+function isoToYmd(iso) { return iso ? String(iso).slice(0,10) : '' }
+
+async function loadCalendar() {
   try {
-    if (!(state.allTasks || []).length) {
-      const b = await api('/tasks/kanban')
-      state.allTasks = b ? Object.values(b).flat() : []
-    }
-    if (!(state.campaigns || []).length) {
-      try { const c = await api('/campaigns'); state.campaigns = Array.isArray(c) ? c : [] } catch {}
-    }
-
-    const tasks = Array.isArray(state.allTasks) ? state.allTasks : []
-    const camps = Array.isArray(state.campaigns) ? state.campaigns : []
-
-    // pontos com coordenadas (para o mapa interativo)
-    const points = []
-    tasks.forEach(t => { if (t && t.lat != null && t.lng != null) points.push({ kind:'tarefa', id:t.id, title:t.titulo, addr:t.local, lat:+t.lat, lng:+t.lng }) })
-    camps.forEach(c => { if (c && c.lat != null && c.lng != null) points.push({ kind:'campanha', id:c.id, title:c.nome, addr:c.local, lat:+c.lat, lng:+c.lng }) })
-    // itens com endereço (para a lista textual)
-    const withAddr = [
-      ...tasks.filter(t => t && t.local).map(t => ({ kind:'tarefa', id:t.id, title:t.titulo, addr:t.local })),
-      ...camps.filter(c => c && c.local).map(c => ({ kind:'campanha', id:c.id, title:c.nome, addr:c.local })),
-    ]
-
-    const list = $('#mapList')
-    if (list) {
-      list.innerHTML = withAddr.length
-        ? withAddr.map(p => `<div class="map-list-item" data-kind="${p.kind}" data-id="${p.id}">
-            <svg class="map-list-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <div class="map-list-body"><div class="map-list-title">${escapeHtml(p.title)} <span class="muted" style="font-size:.75rem">· ${p.kind}</span></div>
-            <div class="map-list-addr">${escapeHtml(p.addr || 'Sem endereço')}</div></div>
-          </div>`).join('')
-        : '<div class="empty-state">Nenhuma tarefa ou campanha com endereço definido. Adicione um <strong>Local</strong> (e opcionalmente coordenadas) ao criar/editar.</div>'
-      $$('.map-list-item', list).forEach(el => el.addEventListener('click', () => {
-        if (el.dataset.kind === 'tarefa') { navigate('tasks'); openPanel(el.dataset.id) }
-        else openCampaignPanel(el.dataset.id)
-      }))
-    }
-
-    // mapa interativo só quando há coordenadas
-    const wrap = $('#mapWrap')
-    if (!points.length) { if (wrap) wrap.hidden = true; return }
-    if (wrap) wrap.hidden = false
-
-    const ok = await ensureLeaflet()
-    const canvas = $('#mapCanvas')
-    if (!ok || !window.L || !canvas) { if (wrap) wrap.hidden = true; return }
-    if (_leafletMap) { _leafletMap.remove(); _leafletMap = null }
-    _leafletMap = window.L.map(canvas).setView([points[0].lat, points[0].lng], 11)
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '© OpenStreetMap',
-    }).addTo(_leafletMap)
-    points.forEach(p => {
-      window.L.marker([p.lat, p.lng]).addTo(_leafletMap)
-        .bindPopup(`<strong>${escapeHtml(p.title)}</strong><br>${escapeHtml(p.addr || '')}`)
-    })
-    setTimeout(() => { try { _leafletMap && _leafletMap.invalidateSize() } catch {} }, 200)
-  } catch (err) {
-    toast('Não foi possível carregar o mapa: ' + (err?.message || err), 'error')
-  }
+    if (!(state.allTasks || []).length) { const b = await api('/tasks/kanban'); state.allTasks = b ? Object.values(b).flat() : [] }
+    if (!(state.campaigns || []).length) { try { const c = await api('/campaigns'); state.campaigns = Array.isArray(c) ? c : [] } catch {} }
+    try { const ev = await api('/events'); calState.events = Array.isArray(ev) ? ev : [] } catch { calState.events = [] }
+  } catch (err) { toast(err.message, 'error') }
+  populateCampaignSelect('#calFilterCampaign', calState.filters.campaignId)
+  // o select de filtro usa "Todas campanhas" como opção vazia
+  const cf = $('#calFilterCampaign'); if (cf) cf.options[0].text = 'Todas campanhas'
+  renderCalendar()
 }
-$('#refreshMapBtn')?.addEventListener('click', loadMap)
+
+function collectCalendarItems() {
+  const items = {} // 'YYYY-MM-DD' -> [{kind,id,title,time,color,campaign_id}]
+  const push = (date, item) => { if (!date) return; (items[date] ??= []).push(item) }
+  const f = calState.filters
+  if (f.tarefas) {
+    (state.allTasks || []).forEach(t => {
+      if (!t.data_fim_planejado) return
+      if (f.campaignId && t.campaign_id !== f.campaignId) return
+      push(isoToYmd(t.data_fim_planejado), { kind:'tarefa', id:t.id, title:t.titulo, time:t.hora_publicacao, color:(t.canal && CANAL_COLORS[t.canal]) || CAL_COLORS.tarefa })
+    })
+  }
+  if (f.campanhas) {
+    (state.campaigns || []).forEach(c => {
+      if (!c.data_evento) return
+      if (f.campaignId && c.id !== f.campaignId) return
+      push(isoToYmd(c.data_evento), { kind:'campanha', id:c.id, title:c.nome, color:c.cor || CAL_COLORS.campanha })
+    })
+  }
+  if (f.eventos) {
+    (calState.events || []).forEach(e => {
+      if (f.campaignId && e.campaign_id !== f.campaignId) return
+      push(isoToYmd(e.data), { kind:'evento', id:e.id, title:e.titulo, time:e.hora, color:e.cor || CAL_COLORS.evento })
+    })
+  }
+  return items
+}
+
+function renderCalendar() {
+  const grid = $('#calGrid'); if (!grid) return
+  const ref = calState.ref
+  $('#calTitle').textContent = `${MONTH_NAMES[ref.getMonth()]} ${ref.getFullYear()}`
+  const firstOfMonth = new Date(ref.getFullYear(), ref.getMonth(), 1)
+  const startDay = firstOfMonth.getDay() // 0=domingo
+  const gridStart = new Date(firstOfMonth); gridStart.setDate(1 - startDay)
+  const todayYmd = ymd(new Date())
+  const items = collectCalendarItems()
+
+  let html = ''
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart); d.setDate(gridStart.getDate() + i)
+    const key = ymd(d)
+    const other = d.getMonth() !== ref.getMonth()
+    const dayItems = items[key] || []
+    const shown = dayItems.slice(0, 3)
+    const extra = dayItems.length - shown.length
+    html += `<div class="cal-cell ${other?'other-month':''} ${key===todayYmd?'today':''}" data-date="${key}">
+      <div class="cal-daynum">${d.getDate()}</div>
+      <button class="cal-add" data-add="${key}" title="Novo evento">+ evento</button>
+      <div class="cal-events">
+        ${shown.map(it => `<div class="cal-event" data-kind="${it.kind}" data-id="${it.id}" style="--ce-color:${it.color};--ce-bg:${it.color}1a" title="${escapeHtml(it.title)}">
+          ${it.time ? `<span class="ce-time">${escapeHtml(it.time)}</span>` : ''}<span>${escapeHtml(it.title)}</span>
+        </div>`).join('')}
+        ${extra > 0 ? `<span class="cal-more" data-more="${key}">+${extra} mais</span>` : ''}
+      </div>
+    </div>`
+  }
+  grid.innerHTML = html
+
+  // clique em item → abre detalhe conforme tipo
+  $$('.cal-event', grid).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation(); openCalendarItem(el.dataset.kind, el.dataset.id)
+  }))
+  // "+N mais" → abre dialog do dia
+  $$('[data-more]', grid).forEach(el => el.addEventListener('click', e => { e.stopPropagation(); openDayEvents(el.dataset.more, items[el.dataset.more] || []) }))
+  // botão "+ evento" por dia (admin)
+  $$('[data-add]', grid).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation(); if (isAdmin()) openEventDialog(null, el.dataset.add)
+  }))
+}
+
+function openCalendarItem(kind, id) {
+  if (kind === 'tarefa')   { navigate('tasks'); openPanel(id) }
+  else if (kind === 'campanha') { openCampaignPanel(id) }
+  else if (kind === 'evento')   { const ev = (calState.events||[]).find(e => e.id === id); if (ev) openEventDialog(ev) }
+}
+
+function openDayEvents(dateKey, dayItems) {
+  const dlg = $('#dayEventsDialog'); if (!dlg) return
+  const d = new Date(dateKey + 'T00:00:00')
+  $('#dayEventsTitle').textContent = d.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long' })
+  $('#dayEventsList').innerHTML = dayItems.map(it =>
+    `<div class="day-event-row" data-kind="${it.kind}" data-id="${it.id}" style="--ce-color:${it.color}">
+      <span class="de-kind">${it.kind}</span>
+      ${it.time ? `<span class="ce-time">${escapeHtml(it.time)}</span>` : ''}
+      <span class="de-title">${escapeHtml(it.title)}</span>
+    </div>`).join('')
+  $$('.day-event-row', dlg).forEach(el => el.addEventListener('click', () => { dlg.close(); openCalendarItem(el.dataset.kind, el.dataset.id) }))
+  dlg.showModal()
+}
+$('#dayEventsClose')?.addEventListener('click', () => $('#dayEventsDialog').close())
+
+/* Navegação de mês + filtros */
+$('#calPrev')?.addEventListener('click',  () => { calState.ref = new Date(calState.ref.getFullYear(), calState.ref.getMonth()-1, 1); renderCalendar() })
+$('#calNext')?.addEventListener('click',  () => { calState.ref = new Date(calState.ref.getFullYear(), calState.ref.getMonth()+1, 1); renderCalendar() })
+$('#calToday')?.addEventListener('click', () => { calState.ref = new Date(); renderCalendar() })
+$('#calShowTasks')?.addEventListener('change',     e => { calState.filters.tarefas    = e.target.checked; renderCalendar() })
+$('#calShowCampaigns')?.addEventListener('change', e => { calState.filters.campanhas  = e.target.checked; renderCalendar() })
+$('#calShowEvents')?.addEventListener('change',    e => { calState.filters.eventos    = e.target.checked; renderCalendar() })
+$('#calFilterCampaign')?.addEventListener('change', e => { calState.filters.campaignId = e.target.value; renderCalendar() })
+
+/* CRUD de eventos avulsos */
+function openEventDialog(ev, prefillDate) {
+  const isEdit = !!ev
+  $('#eventDialogTitle').textContent = isEdit ? 'Editar evento' : 'Novo evento'
+  $('#evId').value        = ev?.id || ''
+  $('#evTitulo').value    = ev?.titulo || ''
+  $('#evDescricao').value = ev?.descricao || ''
+  $('#evData').value      = ev ? isoToYmd(ev.data) : (prefillDate || ymd(new Date()))
+  $('#evHora').value      = ev?.hora || ''
+  $('#evLocal').value     = ev?.local || ''
+  $('#evCor').value       = ev?.cor || '#16a34a'
+  populateCampaignSelect('#evCampaign', ev?.campaign_id || '')
+  $('#evDeleteBtn').hidden = !isEdit
+  $('#eventFormError').hidden = true
+  $('#eventDialog').showModal()
+}
+$('#newEventBtn')?.addEventListener('click', () => openEventDialog(null))
+$('#cancelEventBtn')?.addEventListener('click', () => $('#eventDialog').close())
+$('#eventForm')?.addEventListener('submit', async e => {
+  e.preventDefault()
+  const id = $('#evId').value
+  const body = {
+    titulo:      $('#evTitulo').value.trim(),
+    descricao:   $('#evDescricao').value.trim() || undefined,
+    data:        $('#evData').value,
+    hora:        $('#evHora').value || undefined,
+    local:       $('#evLocal').value.trim() || undefined,
+    cor:         $('#evCor').value || undefined,
+    campaign_id: $('#evCampaign').value || undefined,
+  }
+  try {
+    if (id) await api('/events/'+id, { method:'PATCH', body: JSON.stringify(body) })
+    else    await api('/events',     { method:'POST',  body: JSON.stringify(body) })
+    $('#eventDialog').close()
+    toast(id ? 'Evento atualizado.' : 'Evento criado.', 'success')
+    const ev = await api('/events'); calState.events = Array.isArray(ev) ? ev : []
+    renderCalendar()
+  } catch (err) { $('#eventFormError').textContent = err.message; $('#eventFormError').hidden = false }
+})
+$('#evDeleteBtn')?.addEventListener('click', async () => {
+  const id = $('#evId').value
+  if (!id || !await confirmDialog('Excluir este evento?')) return
+  try {
+    await api('/events/'+id, { method:'DELETE' })
+    $('#eventDialog').close(); toast('Evento excluído.', 'success')
+    calState.events = (calState.events || []).filter(e => e.id !== id)
+    renderCalendar()
+  } catch (err) { toast(err.message, 'error') }
+})
 
 /* ── Notifications ─────────────────────────────────────────────── */
 let _notifTimer = null

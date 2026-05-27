@@ -91,3 +91,11 @@ VALUES ('seed_brief_1', 'Pr. João Silva', 'joao@igreja.org', 'Reel', 'INSTAGRAM
         'Precisamos de um reel de 30s convidando para o culto de Páscoa, com chamada para inscrição no site.',
         '2026-04-05', 'PENDENTE')
 ON CONFLICT (id) DO NOTHING;
+
+-- 7. Eventos de calendário (agenda) — aparecem no Calendário
+INSERT INTO calendar_events (id, titulo, descricao, data, hora, local, cor, campaign_id)
+VALUES
+  ('seed_ev_pauta',  'Reunião de pauta semanal', 'Alinhamento de conteúdo da semana.', CURRENT_DATE + 1,  '10:00', 'Sala de reuniões', '#16a34a', NULL),
+  ('seed_ev_grav',   'Gravação — Vídeo institucional', 'Estúdio reservado.', CURRENT_DATE + 3,  '14:00', 'Estúdio', '#6366f1', 'seed_camp_jovens'),
+  ('seed_ev_culto',  'Ensaio geral — Páscoa', 'Ensaio com equipe de transmissão.', CURRENT_DATE + 7,  '19:30', 'Templo Sede', '#E8743B', 'seed_camp_pascoa')
+ON CONFLICT (id) DO NOTHING;
