@@ -361,6 +361,9 @@ body {
   border-radius: 6px; color: var(--text); font-size: 0.8rem;
 }
 .filter-select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+.filter-daterange { display: inline-flex; align-items: center; gap: 6px; }
+.filter-daterange .filter-select { color: var(--text-muted); }
+.fdr-sep { color: var(--text-dim); font-size: 0.8rem; }
 
 /* ── KANBAN ───────────────────────────────────────── */
 .kanban {

@@ -49,7 +49,7 @@ const state = {
   users:        [],
   campaigns:    [],
   currentTaskId: null,
-  filters:      { status:'', priority:'', teamId:'', canal:'', userId:'', deadline:'' },
+  filters:      { status:'', priority:'', teamId:'', canal:'', userId:'', campaignId:'', deadline:'', dateFrom:'', dateTo:'' },
   listSort:     { key:'data_fim_planejado', dir:'asc' },
   listPage:     1,
   listView:     'kanban',
@@ -478,23 +478,34 @@ function renderUpcoming() {
 async function loadTasks() {
   try {
     const promises = [api('/tasks/kanban')]
-    if (!state.teams.length) promises.push(api('/teams').then(t => { state.teams = t }))
-    if (!state.users.length) promises.push(api('/users').then(u => { state.users = u }))
+    if (!state.teams.length) promises.push(api('/teams').then(t => { state.teams = Array.isArray(t) ? t : [] }))
+    if (!state.users.length) promises.push(api('/users').then(u => { state.users = Array.isArray(u) ? u : [] }))
+    if (!state.campaigns.length) promises.push(api('/campaigns').then(c => { state.campaigns = Array.isArray(c) ? c : [] }).catch(() => {}))
     const [board] = await Promise.all(promises)
-    state.allTasks = Object.values(board).flat()
+    state.allTasks = board ? Object.values(board).flat() : []
     applyFiltersAndRender()
     populateTeamFilter()
     populateUserFilter()
+    populateCampaignFilter()
   } catch (err) { toast(err.message, 'error') }
 }
 function getFilteredTasks() {
   let t = state.allTasks
-  const { status, priority, teamId, canal, userId, deadline } = state.filters
+  const { status, priority, teamId, canal, userId, campaignId, deadline, dateFrom, dateTo } = state.filters
   if (status)   t = t.filter(x => x.status === status)
   if (priority) t = t.filter(x => x.prioridade === priority)
   if (teamId)   t = t.filter(x => (x.assignments||[]).some(a => a.team_id === teamId))
   if (canal)    t = t.filter(x => x.canal === canal)
   if (userId)   t = t.filter(x => (x.assignments||[]).some(a => a.user_id === userId))
+  if (campaignId) t = t.filter(x => x.campaign_id === campaignId)
+  if (dateFrom) {
+    const from = new Date(dateFrom); from.setHours(0,0,0,0)
+    t = t.filter(x => x.data_fim_planejado && new Date(x.data_fim_planejado) >= from)
+  }
+  if (dateTo) {
+    const to = new Date(dateTo); to.setHours(23,59,59,999)
+    t = t.filter(x => x.data_fim_planejado && new Date(x.data_fim_planejado) <= to)
+  }
   if (deadline) {
     const now = new Date(); now.setHours(0,0,0,0)
     if (deadline === 'today') {
@@ -530,6 +541,13 @@ function populateUserFilter() {
   sel.innerHTML = '<option value="">Responsável</option>' +
     state.users.filter(u => u.role !== 'GUEST')
       .map(u => `<option value="${u.id}"${u.id===cur?' selected':''}>${escapeHtml(u.nome)}</option>`).join('')
+}
+function populateCampaignFilter() {
+  const sel = $('#filterCampaign')
+  if (!sel) return
+  const cur = state.filters.campaignId
+  sel.innerHTML = '<option value="">Campanha</option>' +
+    (state.campaigns || []).map(c => `<option value="${c.id}"${c.id===cur?' selected':''}>${escapeHtml(c.nome)}</option>`).join('')
 }
 
 /* ── Kanban render ─────────────────────────────────────────────── */
@@ -788,20 +806,36 @@ $('#filterUser').addEventListener('change', () => {
 $('#filterDeadline').addEventListener('change', () => {
   state.filters.deadline = $('#filterDeadline').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
 })
+$('#filterCampaign').addEventListener('change', () => {
+  state.filters.campaignId = $('#filterCampaign').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
+})
+$('#filterDateFrom').addEventListener('change', () => {
+  state.filters.dateFrom = $('#filterDateFrom').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
+})
+$('#filterDateTo').addEventListener('change', () => {
+  state.filters.dateTo = $('#filterDateTo').value; state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
+})
 
 function renderActiveFilterChips() {
   const wrap = $('#activeFilterChips')
   if (!wrap) return
   const chips = []
-  const { status, priority, teamId, canal, userId, deadline } = state.filters
+  const { status, priority, teamId, canal, userId, campaignId, deadline, dateFrom, dateTo } = state.filters
   if (status)   chips.push({ label:`Status: ${STATUS_LABELS[status]||status}`,        clear() { state.filters.status='';   $$('.status-chip').forEach(c=>c.classList.toggle('active',c.dataset.status==='')) } })
   if (priority) chips.push({ label:`Prioridade: ${PRIORITY_LABELS[priority]||priority}`, clear() { state.filters.priority='';  $('#filterPriority').value='' } })
   if (teamId)   { const tm=state.teams.find(t=>t.id===teamId); chips.push({ label:`Equipe: ${tm?.nome||teamId}`,       clear() { state.filters.teamId='';   $('#filterTeam').value='' } }) }
   if (canal)    chips.push({ label:`Canal: ${CANAL_LABELS[canal]||canal}`,            clear() { state.filters.canal='';    $('#filterCanal').value='' } })
   if (userId)   { const u=state.users.find(x=>x.id===userId);  chips.push({ label:`Responsável: ${u?.nome||userId}`,  clear() { state.filters.userId='';   $('#filterUser').value='' } }) }
+  if (campaignId) { const c=(state.campaigns||[]).find(x=>x.id===campaignId); chips.push({ label:`Campanha: ${c?.nome||campaignId}`, clear() { state.filters.campaignId=''; $('#filterCampaign').value='' } }) }
   if (deadline) {
     const DL = { today:'Vence hoje', week:'Vence esta semana', overdue:'Vencido' }
     chips.push({ label:DL[deadline]||deadline, clear() { state.filters.deadline=''; $('#filterDeadline').value='' } })
+  }
+  if (dateFrom || dateTo) {
+    const fmt = d => new Date(d+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})
+    const label = dateFrom && dateTo ? `Prazo: ${fmt(dateFrom)} – ${fmt(dateTo)}`
+      : dateFrom ? `Prazo a partir de ${fmt(dateFrom)}` : `Prazo até ${fmt(dateTo)}`
+    chips.push({ label, clear() { state.filters.dateFrom=''; state.filters.dateTo=''; $('#filterDateFrom').value=''; $('#filterDateTo').value='' } })
   }
   if (!chips.length) { wrap.hidden=true; wrap.innerHTML=''; return }
   wrap.hidden = false
@@ -814,9 +848,9 @@ function renderActiveFilterChips() {
     })
   })
   wrap.querySelector('.afc-clear-all').addEventListener('click', () => {
-    state.filters = { status:'', priority:'', teamId:'', canal:'', userId:'', deadline:'' }
+    state.filters = { status:'', priority:'', teamId:'', canal:'', userId:'', campaignId:'', deadline:'', dateFrom:'', dateTo:'' }
     $$('.status-chip').forEach(c=>c.classList.toggle('active',c.dataset.status===''))
-    ;['#filterPriority','#filterTeam','#filterCanal','#filterUser','#filterDeadline'].forEach(s => { const el=$(s); if(el) el.value='' })
+    ;['#filterPriority','#filterTeam','#filterCanal','#filterUser','#filterCampaign','#filterDeadline','#filterDateFrom','#filterDateTo'].forEach(s => { const el=$(s); if(el) el.value='' })
     state.listPage=1; applyFiltersAndRender(); renderActiveFilterChips()
   })
 }

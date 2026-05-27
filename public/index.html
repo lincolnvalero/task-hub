@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=20260526b" />
+  <link rel="stylesheet" href="/styles.css?v=20260526c" />
 </head>
 <body>
 
@@ -232,12 +232,20 @@
               <select id="filterUser" class="filter-select">
                 <option value="">Responsável</option>
               </select>
+              <select id="filterCampaign" class="filter-select">
+                <option value="">Campanha</option>
+              </select>
               <select id="filterDeadline" class="filter-select">
                 <option value="">Prazo</option>
                 <option value="today">Vence hoje</option>
                 <option value="week">Vence esta semana</option>
                 <option value="overdue">Vencido</option>
               </select>
+              <div class="filter-daterange">
+                <input type="date" id="filterDateFrom" class="filter-select" title="Prazo a partir de" />
+                <span class="fdr-sep">–</span>
+                <input type="date" id="filterDateTo" class="filter-select" title="Prazo até" />
+              </div>
             </div>
           </div>
           <div id="activeFilterChips" class="active-filter-chips" hidden></div>
@@ -771,6 +779,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260526b"></script>
+  <script src="/app.js?v=20260526c"></script>
 </body>
 </html>
