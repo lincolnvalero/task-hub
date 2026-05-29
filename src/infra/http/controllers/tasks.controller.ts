@@ -219,7 +219,7 @@ export async function tasksRoutes(app: FastifyInstance) {
     const schema = z.object({
       texto:       z.string().min(1).max(500),
       deadline:    z.string().optional(),
-      assignee_id: z.string().uuid().optional(),
+      assignee_id: z.string().min(1).optional(), // cuid() não é UUID — não usar z.string().uuid()
     })
     const body = schema.safeParse(request.body)
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() })

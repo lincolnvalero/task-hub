@@ -185,6 +185,8 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   data        DATE        NOT NULL,
   hora        TEXT,                       -- ex: "19:30"
   local       TEXT,
+  lat         DOUBLE PRECISION,           -- coordenada para mapa
+  lng         DOUBLE PRECISION,           -- coordenada para mapa
   cor         TEXT,                       -- hex p/ a etiqueta
   campaign_id TEXT        REFERENCES campaigns(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -195,3 +197,7 @@ CREATE INDEX IF NOT EXISTS idx_calendar_data ON calendar_events(data);
 ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "calendar_all" ON calendar_events;
 CREATE POLICY "calendar_all" ON calendar_events FOR ALL USING (true) WITH CHECK (true);
+
+-- lat/lng para eventos de calendário (Fase 6 — Mapa) — idempotente
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;

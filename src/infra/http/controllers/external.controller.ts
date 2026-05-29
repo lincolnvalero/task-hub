@@ -221,7 +221,7 @@ export async function externalRoutes(app: FastifyInstance) {
         id:          taskId,
         titulo:      `${existing.tipo} — ${existing.nome}`.slice(0, 200),
         descricao:   existing.descricao,
-        status:      'BACKLOG',
+        status:      'A_FAZER',
         prioridade:  'MEDIA',
         tipo_tarefa: existing.tipo,
         solicitante: existing.nome,

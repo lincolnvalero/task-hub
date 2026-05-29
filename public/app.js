@@ -167,15 +167,20 @@ async function api(path, opts = {}) {
 }
 
 /* ── Toast ─────────────────────────────────────────────────────── */
-function toast(msg, type = 'info') {
+function toast(msg, type = 'info', onClick = null) {
   const el = document.createElement('div')
   el.className = `toast ${type}`
   el.textContent = msg
+  if (onClick) {
+    el.style.cursor = 'pointer'
+    el.title = 'Clique para abrir'
+    el.addEventListener('click', () => { onClick(); el.remove() }, { once: true })
+  }
   $('#toastContainer').appendChild(el)
   setTimeout(() => {
     el.classList.add('toast-out')
-    el.addEventListener('animationend', () => el.remove(), { once:true })
-  }, 4000)
+    el.addEventListener('animationend', () => el.remove(), { once: true })
+  }, onClick ? 7000 : 4000) // toasts clicáveis ficam mais tempo
 }
 
 /* ── Confirm dialog ────────────────────────────────────────────── */
@@ -188,6 +193,26 @@ function confirmDialog(msg) {
     $('#confirmOk').addEventListener('click',     () => done(true),  { once:true })
     $('#confirmCancel').addEventListener('click', () => done(false), { once:true })
     dlg.addEventListener('cancel', () => resolve(false), { once:true })
+  })
+}
+/* promptInputDialog — styled replacement for native window.prompt()
+   Returns the trimmed text the user typed, or null if cancelled. */
+function promptInputDialog(msg, placeholder) {
+  return new Promise(resolve => {
+    const dlg = $('#promptDialog')
+    $('#promptMsg').textContent = msg
+    const inp = $('#promptInput')
+    inp.value = ''
+    inp.placeholder = placeholder || 'Opcional…'
+    dlg.showModal()
+    requestAnimationFrame(() => inp.focus())
+    function done(val) { dlg.close(); resolve(val) }
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); done(inp.value.trim() || null) }
+    }, { once: true })
+    $('#promptOk').addEventListener('click',     () => done(inp.value.trim() || null), { once:true })
+    $('#promptCancel').addEventListener('click', () => done(null),                     { once:true })
+    dlg.addEventListener('cancel', () => resolve(null), { once:true })
   })
 }
 
@@ -243,6 +268,7 @@ function navigate(view) {
   if (view === 'briefings') loadBriefings()
   if (view === 'campaigns') loadCampaigns()
   if (view === 'calendar')  loadCalendar()
+  if (view === 'mapa')      loadMapa()
 }
 
 /* ── Auth events ───────────────────────────────────────────────── */
@@ -905,6 +931,9 @@ function populatePanel(task) {
   $('#panelDescricao').value      = task.descricao || ''
   $('#panelHoraPublicacao').value = task.hora_publicacao || ''
   $('#panelProductionDays').value = task.production_days || ''
+  $('#panelLocal').value          = task.local || ''
+  $('#panelLat').value            = task.lat != null ? task.lat : ''
+  $('#panelLng').value            = task.lng != null ? task.lng : ''
   $('#panelRoteiro').value        = task.roteiro || ''
   $('#roteiroRevisions').hidden   = true
   $('#roteiroMeta').textContent   = task.roteiro ? `atualizado ${relativeTime(task.updated_at)}` : ''
@@ -924,8 +953,9 @@ function populatePanel(task) {
   const editable = isAdmin()
   ;['#panelPriority','#panelCanal','#panelTipo','#panelStartDate','#panelDueDate',
     '#panelSolicitante','#panelDescricao','#panelHoraPublicacao','#panelProductionDays',
+    '#panelLocal','#panelLat','#panelLng',
     '#panelGdrive','#panelFrameio','#panelRoteiro']
-    .forEach(sel => $(sel).disabled = !editable)
+    .forEach(sel => { const el = $(sel); if (el) el.disabled = !editable })
   $('#panelDeleteBtn').hidden = !editable
   const addWrap = $('#checklistAddWrap')
   if (addWrap) addWrap.hidden = !editable
@@ -1042,6 +1072,17 @@ $('#panelCanal').addEventListener('change', () => {
 ;[['#panelTipo','tipo_tarefa'],['#panelSolicitante','solicitante']].forEach(([sel,key]) => {
   $(sel).addEventListener('blur', () => { if (isAdmin()) patchCurrentTask({ [key]: $(sel).value.trim()||undefined }) })
 })
+$('#panelLocal')?.addEventListener('blur', () => {
+  if (isAdmin()) patchCurrentTask({ local: $('#panelLocal').value.trim() || null })
+})
+;['#panelLat','#panelLng'].forEach(sel => {
+  $(sel)?.addEventListener('blur', () => {
+    if (!isAdmin()) return
+    const key = sel === '#panelLat' ? 'lat' : 'lng'
+    const val = parseFloat($(sel).value)
+    patchCurrentTask({ [key]: isNaN(val) ? null : val })
+  })
+})
 ;[['#panelStartDate','data_inicio_planejado'],['#panelDueDate','data_fim_planejado']].forEach(([sel,key]) => {
   $(sel).addEventListener('change', () => { if (isAdmin()) patchCurrentTask({ [key]: $(sel).value||undefined }) })
 })
@@ -1135,6 +1176,65 @@ async function sendComment() {
 $('#sendCommentBtn').addEventListener('click', sendComment)
 $('#commentInput').addEventListener('keydown', e => { if (e.key==='Enter' && e.ctrlKey) { e.preventDefault(); sendComment() } })
 
+/* ── Chip picker (multi-seleção com busca/validação) ───────────── */
+function makeChipPicker({ inputId, dropdownId, chipsId, single = false }) {
+  const input = $('#'+inputId), dd = $('#'+dropdownId), chipsEl = $('#'+chipsId)
+  if (!input || !dd || !chipsEl) return { setOptions(){}, reset(){}, getIds(){ return [] }, addById(){} }
+  let selected = []      // [{id,label,sub}]
+  let opts = []          // [{id,label,sub}]
+  function renderChips() {
+    chipsEl.innerHTML = selected.map(s =>
+      `<span class="picker-chip" data-id="${s.id}">${escapeHtml(s.label)} <button type="button" class="picker-chip-x" data-rm="${s.id}" title="Remover">×</button></span>`
+    ).join('')
+    $$('[data-rm]', chipsEl).forEach(b => b.addEventListener('click', () => {
+      selected = selected.filter(x => x.id !== b.dataset.rm); renderChips()
+    }))
+  }
+  function showDropdown() {
+    const q = input.value.trim().toLowerCase()
+    const selIds = new Set(selected.map(s => s.id))
+    const matches = opts.filter(o => !selIds.has(o.id) &&
+      (!q || o.label.toLowerCase().includes(q) || (o.sub||'').toLowerCase().includes(q))).slice(0, 8)
+    if (!matches.length) {
+      dd.innerHTML = '<div class="picker-empty">Nenhum item disponível.</div>'
+      dd.hidden = false; return
+    }
+    dd.innerHTML = matches.map(o =>
+      `<div class="picker-opt" data-id="${o.id}">${escapeHtml(o.label)}${o.sub?`<span class="picker-opt-sub">${escapeHtml(o.sub)}</span>`:''}</div>`
+    ).join('')
+    $$('.picker-opt', dd).forEach(el => el.addEventListener('mousedown', e => {
+      e.preventDefault()
+      const o = opts.find(x => x.id === el.dataset.id)
+      if (o) {
+        if (single) { selected = [o] }
+        else if (!selected.some(s => s.id === o.id)) { selected.push(o) }
+        renderChips()
+      }
+      input.value = ''; dd.hidden = true; input.focus()
+      if (!single) showDropdown()
+    }))
+    dd.hidden = false
+  }
+  input.addEventListener('focus', showDropdown)
+  input.addEventListener('input', showDropdown)
+  input.addEventListener('blur', () => setTimeout(() => { dd.hidden = true }, 150))
+  return {
+    setOptions(o) { opts = o || [] },
+    reset() { selected = []; renderChips(); input.value = ''; dd.hidden = true },
+    getIds() { return selected.map(s => s.id) },
+    addById(id) {
+      const o = opts.find(x => x.id === id)
+      if (o) {
+        if (single) { selected = [o] }
+        else if (!selected.some(s => s.id === id)) { selected.push(o) }
+        renderChips()
+      }
+    },
+  }
+}
+const teamPicker = makeChipPicker({ inputId:'teamPickerInput', dropdownId:'teamPickerDropdown', chipsId:'teamChips', single: true })
+const userPicker = makeChipPicker({ inputId:'userPickerInput', dropdownId:'userPickerDropdown', chipsId:'userChips' })
+
 /* ── New task dialog ───────────────────────────────────────────── */
 $('#newTaskBtn').addEventListener('click', async () => {
   $('#taskFormError').hidden = true
@@ -1151,9 +1251,9 @@ $('#newTaskBtn').addEventListener('click', async () => {
     }
   } catch (err) { toast(err.message,'error'); return }
   if (!state.teams.length) { toast('Crie ao menos uma equipe primeiro.','error'); navigate('teams'); return }
-  $('#tTeam').innerHTML = state.teams.map(t => `<option value="${t.id}">${escapeHtml(t.nome)}</option>`).join('')
-  $('#tUsers').innerHTML = state.users.filter(u=>u.role!=='GUEST')
-    .map(u => `<option value="${u.id}">${escapeHtml(u.nome)} (${escapeHtml(u.email)})</option>`).join('')
+  teamPicker.setOptions(state.teams.map(t => ({ id:t.id, label:t.nome })))
+  userPicker.setOptions(state.users.filter(u=>u.role!=='GUEST').map(u => ({ id:u.id, label:u.nome, sub:u.email })))
+  teamPicker.reset(); userPicker.reset()
   populateCampaignSelect('#tCampaign', '')
   $('#taskDialog').showModal()
 })
@@ -1171,6 +1271,12 @@ $('#tProductionDays').addEventListener('input', calcAutoDeadline)
 $('#taskForm').addEventListener('submit', async e => {
   e.preventDefault()
   const _prodDays = parseInt($('#tProductionDays').value)
+  const teamIds = teamPicker.getIds()
+  if (!teamIds.length) {
+    $('#taskFormError').textContent = 'Selecione ao menos uma equipe.'
+    $('#taskFormError').hidden = false
+    return
+  }
   const body = {
     titulo:               $('#tTitulo').value.trim(),
     descricao:            $('#tDescricao').value.trim()||undefined,
@@ -1180,8 +1286,8 @@ $('#taskForm').addEventListener('submit', async e => {
     data_fim_planejado:   $('#tPrazo').value||undefined,
     production_days:      isNaN(_prodDays) ? undefined : _prodDays,
     campaign_id:          $('#tCampaign').value || undefined,
-    team_ids:             [$('#tTeam').value],
-    user_ids:             Array.from($('#tUsers').selectedOptions).map(o=>o.value),
+    team_ids:             teamIds,
+    user_ids:             userPicker.getIds(),
   }
   try {
     await api('/tasks',{ method:'POST', body:JSON.stringify(body) })
@@ -1370,7 +1476,7 @@ function renderTeamPanelTasks(teamId) {
   wrap.innerHTML = tasks.slice(0,10).map(t =>
     `<div class="tdp-task-row" data-id="${t.id}">
       ${priorityChip(t.prioridade)}
-      <span class="tdp-task-title">${escapeHtml(t.titulo)}</span>
+      <span class="tdp-task-title" title="${escapeHtml(t.titulo)}">${escapeHtml(t.titulo)}</span>
       ${statusBadge(t.status)}
     </div>`
   ).join('')
@@ -1600,7 +1706,7 @@ function renderGalleryView() {
         ${statusBadge(t.status)}
       </div>
       <div class="gallery-card-body">
-        <div class="gallery-card-title">${escapeHtml(t.titulo)}</div>
+        <div class="gallery-card-title" title="${escapeHtml(t.titulo)}">${escapeHtml(t.titulo)}</div>
         <div class="gallery-card-chips">
           ${priorityChip(t.prioridade)}
           ${deadlineChip(t.data_fim_planejado)}
@@ -1622,6 +1728,11 @@ function renderGalleryView() {
 }
 
 /* ── Timeline view ─────────────────────────────────────────────── */
+// Timeline zoom state: null=auto, 0=mensal(30d), 1=semanal(7d), 2=diário(1d)
+const TIMELINE_ZOOM_STEPS = [30, 7, 1]
+const TIMELINE_ZOOM_LABELS = ['Mensal', 'Semanal', 'Diário']
+let _timelineZoomIdx = null
+
 function renderTimelineView() {
   const wrap = $('#timelineChart')
   if (!wrap) return
@@ -1641,7 +1752,15 @@ function renderTimelineView() {
   const totalMs = maxDate - minDate
   if (totalMs <= 0) { wrap.innerHTML = '<div class="timeline-empty">Intervalo de datas inválido.</div>'; return }
   const totalDays = Math.round(totalMs / 86400000)
-  const cellDays  = totalDays <= 30 ? 1 : totalDays <= 90 ? 7 : 30
+  const autoCellDays = totalDays <= 30 ? 1 : totalDays <= 90 ? 7 : 30
+  const cellDays = _timelineZoomIdx !== null ? TIMELINE_ZOOM_STEPS[_timelineZoomIdx] : autoCellDays
+
+  // Atualiza botões de zoom
+  const zoomInBtn  = $('#timelineZoomIn')
+  const zoomOutBtn = $('#timelineZoomOut')
+  const effectiveIdx = _timelineZoomIdx !== null ? _timelineZoomIdx : TIMELINE_ZOOM_STEPS.indexOf(autoCellDays)
+  if (zoomInBtn)  { zoomInBtn.disabled  = effectiveIdx >= TIMELINE_ZOOM_STEPS.length - 1; zoomInBtn.title  = 'Zoom in (mais detalhe)' }
+  if (zoomOutBtn) { zoomOutBtn.disabled = effectiveIdx <= 0; zoomOutBtn.title = 'Zoom out (visão geral)' }
   const headers = []
   const cur = new Date(minDate)
   while (cur <= maxDate) { headers.push(new Date(cur)); cur.setDate(cur.getDate() + cellDays) }
@@ -1675,9 +1794,17 @@ function renderTimelineView() {
   wrap.innerHTML = headerHtml + rowsHtml
   $$('.timeline-row', wrap).forEach(row => row.addEventListener('click', () => openPanel(row.dataset.id)))
 }
-// Timeline zoom (simple: reload with a note — full zoom requires more state)
-$('#timelineZoomIn')?.addEventListener('click',  () => renderTimelineView())
-$('#timelineZoomOut')?.addEventListener('click', () => renderTimelineView())
+// Timeline zoom — cicla entre mensal / semanal / diário
+$('#timelineZoomIn')?.addEventListener('click', () => {
+  const cur = _timelineZoomIdx ?? TIMELINE_ZOOM_STEPS.indexOf(/* auto = will be recomputed */ 7)
+  _timelineZoomIdx = Math.min(TIMELINE_ZOOM_STEPS.length - 1, (cur === -1 ? 1 : cur) + 1)
+  renderTimelineView()
+})
+$('#timelineZoomOut')?.addEventListener('click', () => {
+  const cur = _timelineZoomIdx ?? TIMELINE_ZOOM_STEPS.indexOf(7)
+  _timelineZoomIdx = Math.max(0, (cur === -1 ? 1 : cur) - 1)
+  renderTimelineView()
+})
 
 /* ── Checklist ─────────────────────────────────────────────────── */
 function renderChecklist(items, editable) {
@@ -1731,7 +1858,7 @@ async function addChecklistItem() {
     })
     input.value = ''; if (dlInput) dlInput.value = ''
     const task = await api('/tasks/'+state.currentTaskId)
-    renderChecklist(task.checklist||[], true)
+    renderChecklist(task.checklist||[], isAdmin())
     toast('Item adicionado.','success')
   } catch (err) { toast(err.message,'error') }
 }
@@ -1748,7 +1875,7 @@ async function deleteChecklistItem(itemId) {
   try {
     await api('/tasks/'+state.currentTaskId+'/checklist/'+itemId, { method:'DELETE' })
     const task = await api('/tasks/'+state.currentTaskId)
-    renderChecklist(task.checklist||[], true)
+    renderChecklist(task.checklist||[], isAdmin())
     toast('Item removido.','success')
   } catch (err) { toast(err.message,'error') }
 }
@@ -1803,8 +1930,8 @@ function renderApprovals(approvals) {
         <div class="approval-status-row">
           <span class="approval-badge ${a.status}">${APPROVAL_LABELS[a.status]||a.status}</span>
           <div class="approval-actions">
-            <button class="approval-act ok"  data-approve="${a.id}">✓ Aprovar</button>
-            <button class="approval-act fix" data-fix="${a.id}">↻ Pedir ajustes</button>
+            ${a.status !== 'APROVADO' ? `<button class="approval-act ok"  data-approve="${a.id}">✓ Aprovar</button>` : ''}
+            ${a.status !== 'AJUSTES'  ? `<button class="approval-act fix" data-fix="${a.id}">↻ Pedir ajustes</button>` : ''}
           </div>
         </div>
         ${a.nota ? `<div class="approval-note">💬 ${escapeHtml(a.nota)}</div>` : ''}
@@ -1818,7 +1945,12 @@ function renderApprovals(approvals) {
 async function decideApproval(approvalId, status) {
   let nota
   if (status === 'AJUSTES') {
-    nota = prompt('Descreva os ajustes necessários (opcional):') || undefined
+    const result = await promptInputDialog(
+      'Descreva os ajustes necessários:',
+      'Ex: aumentar fonte, trocar cor do fundo… (pressione Enter para confirmar)'
+    )
+    if (result === null) return   // user cancelled — abort the decision
+    nota = result || undefined
   }
   try {
     await api('/approvals/'+approvalId, { method:'PATCH', body: JSON.stringify({ status, nota }) })
@@ -1867,9 +1999,46 @@ async function loadBriefings() {
   list.innerHTML = '<p class="muted">Carregando…</p>'
   try {
     const data = await api('/briefing')
+    state._lastBriefings = data
     renderBriefings(data)
   } catch (err) { list.innerHTML = `<p class="muted">${escapeHtml(err.message)}</p>` }
 }
+
+/** Dialog de confirmação e vínculo de campanha ao converter um briefing */
+function briefingConvertDialog(briefing) {
+  return new Promise(resolve => {
+    const dlg = document.createElement('dialog')
+    dlg.className = 'confirm-dialog'
+    const camps = state.campaigns || []
+    dlg.innerHTML = `
+      <div class="confirm-body">
+        <p class="confirm-msg">Converter o briefing de <strong>${escapeHtml(briefing.nome || 'este solicitante')}</strong> em tarefa?</p>
+        <div class="form-group" style="margin:12px 0 0">
+          <label class="label" for="bfCampSel">Vincular a campanha <span style="color:var(--text-muted)">(opcional)</span></label>
+          <select id="bfCampSel" class="input" style="width:100%;margin-top:4px">
+            <option value="">— sem campanha —</option>
+            ${camps.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="dialog-actions" style="margin-top:16px">
+          <button id="bfDlgCancel" class="btn-ghost">Cancelar</button>
+          <button id="bfDlgOk" class="btn-primary">✓ Converter em tarefa</button>
+        </div>
+      </div>`
+    document.body.appendChild(dlg)
+    dlg.showModal()
+    function done(val) { dlg.close(); dlg.remove(); resolve(val) }
+    dlg.querySelector('#bfDlgOk').addEventListener('click', () => {
+      const sel = dlg.querySelector('#bfCampSel')
+      done({ confirmed: true, campaign_id: sel?.value || null })
+    }, { once: true })
+    dlg.querySelector('#bfDlgCancel').addEventListener('click', () => done({ confirmed: false }), { once: true })
+    dlg.addEventListener('cancel', () => resolve({ confirmed: false }), { once: true })
+  })
+}
+
+const BF_STATUS_LABELS = { PENDENTE: 'Pendente', CONVERTIDO: 'Convertido', REJEITADO: 'Rejeitado' }
+
 function renderBriefings(briefings) {
   const list = $('#briefingsList')
   if (!list) return
@@ -1883,26 +2052,49 @@ function renderBriefings(briefings) {
     return `<div class="briefing-item">
       <div class="briefing-item-title">${escapeHtml(b.nome)} · <span style="color:var(--text-muted);font-size:.8rem">${escapeHtml(b.email)}</span></div>
       <div class="briefing-item-meta">
-        <span class="briefing-status-badge ${b.status}">${b.status}</span>
+        <span class="briefing-status-badge ${b.status}">${BF_STATUS_LABELS[b.status] || b.status}</span>
         <span>${escapeHtml(b.tipo)}</span>
         ${b.canal ? `<span>${escapeHtml(b.canal)}</span>` : ''}
         ${b.data_evento ? `<span>📅 ${new Date(b.data_evento).toLocaleDateString('pt-BR')}</span>` : ''}
         <span style="color:var(--text-dim)">${dt}</span>
       </div>
       <div class="briefing-item-desc">${escapeHtml(b.descricao.slice(0,200))}${b.descricao.length>200?'…':''}</div>
+      ${b.task_id ? `<div class="briefing-item-meta" style="margin-top:4px"><span style="color:var(--accent);font-size:.8rem;cursor:pointer" data-open-task="${b.task_id}">↗ Ver tarefa criada</span></div>` : ''}
       ${isPendente ? `<div class="briefing-actions">
         <button class="btn-primary btn-sm" data-bf-approve="${b.id}">✓ Converter em tarefa</button>
         <button class="btn-ghost btn-sm" data-bf-reject="${b.id}">✕ Rejeitar</button>
       </div>` : ''}
     </div>`
   }).join('')
+  // Link para abrir tarefa já criada
+  $$('[data-open-task]', list).forEach(span =>
+    span.addEventListener('click', () => {
+      navigate('tasks')
+      setTimeout(() => openPanel(span.dataset.openTask), 300)
+    })
+  )
   $$('[data-bf-approve]', list).forEach(btn =>
     btn.addEventListener('click', async () => {
-      if (!await confirmDialog('Converter este briefing em tarefa? O status será marcado como CONVERTIDO.')) return
+      const bId = btn.dataset.bfApprove
+      const briefing = (state._lastBriefings || []).find(b => b.id === bId) || { nome: 'este solicitante' }
+      const result = await briefingConvertDialog(briefing)
+      if (!result.confirmed) return
       try {
-        await api('/briefing/'+btn.dataset.bfApprove, { method:'PATCH', body:JSON.stringify({ status:'CONVERTIDO' }) })
-        toast('Briefing convertido.','success'); loadBriefings()
-      } catch (err) { toast(err.message,'error') }
+        const body = { status: 'CONVERTIDO' }
+        if (result.campaign_id) body.campaign_id = result.campaign_id
+        const resp = await api('/briefing/' + bId, { method: 'PATCH', body: JSON.stringify(body) })
+        if (resp?.task_id) {
+          const taskId = resp.task_id
+          toast('✓ Tarefa criada — clique para abrir', 'success', () => {
+            navigate('tasks')
+            setTimeout(() => openPanel(taskId), 300)
+          })
+          loadTasks()
+        } else {
+          toast('Briefing convertido.', 'success')
+        }
+        loadBriefings()
+      } catch (err) { toast(err.message, 'error') }
     })
   )
   $$('[data-bf-reject]', list).forEach(btn =>
@@ -1973,6 +2165,8 @@ async function openCampaignPanel(id) {
     nameEl.contentEditable = isAdmin() ? 'plaintext-only' : 'false'
     $('#cdpDataEvento').value = c.data_evento ? c.data_evento.slice(0,10) : ''
     $('#cdpLocal').value      = c.local || ''
+    $('#cdpLat').value        = c.lat != null ? c.lat : ''
+    $('#cdpLng').value        = c.lng != null ? c.lng : ''
     $('#cdpDescricao').value  = c.descricao || ''
     const tasks = c.tasks || []
     const done  = tasks.filter(t => t.status === 'CONCLUIDO').length
@@ -1982,7 +2176,7 @@ async function openCampaignPanel(id) {
       { val: (c.link_assets||[]).length, lbl: 'Assets' },
     ].map(s => `<div class="tdp-stat-item ${s.cls||''}"><div class="tdp-stat-val">${s.val}</div><div class="tdp-stat-lbl">${s.lbl}</div></div>`).join('')
     const ed = isAdmin()
-    ;['#cdpDataEvento','#cdpLocal','#cdpDescricao'].forEach(s => $(s).disabled = !ed)
+    ;['#cdpDataEvento','#cdpLocal','#cdpLat','#cdpLng','#cdpDescricao'].forEach(s => $(s).disabled = !ed)
     $('#cdpAssetAddWrap').hidden = !ed
     $('#cdpDeleteBtn').hidden = !ed
     renderCampaignAssets(c.link_assets || [], ed)
@@ -2029,7 +2223,7 @@ function renderCampaignPanelTasks(tasks) {
   if (!tasks.length) { wrap.innerHTML = '<p class="muted" style="font-size:.8rem">Nenhuma tarefa vinculada.</p>'; return }
   wrap.innerHTML = tasks.map(t => `<div class="tdp-task-row" data-id="${t.id}">
     ${priorityChip(t.prioridade)}
-    <span class="tdp-task-title">${escapeHtml(t.titulo)}</span>
+    <span class="tdp-task-title" title="${escapeHtml(t.titulo)}">${escapeHtml(t.titulo)}</span>
     ${statusBadge(t.status)}
   </div>`).join('')
   $$('.tdp-task-row', wrap).forEach(row => row.addEventListener('click', () => { closeCampaignPanel(); navigate('tasks'); openPanel(row.dataset.id) }))
@@ -2055,6 +2249,15 @@ $('#cdpName')?.addEventListener('blur', async () => {
   $(sel)?.addEventListener('blur', () => {
     if (!isAdmin() || !currentCampaignId) return
     api('/campaigns/'+currentCampaignId, { method:'PATCH', body: JSON.stringify({ [key]: $(sel).value || null }) })
+      .then(() => toast('Salvo.','success')).catch(e => toast(e.message,'error'))
+  })
+})
+;['#cdpLat','#cdpLng'].forEach(sel => {
+  $(sel)?.addEventListener('blur', () => {
+    if (!isAdmin() || !currentCampaignId) return
+    const key = sel === '#cdpLat' ? 'lat' : 'lng'
+    const val = parseFloat($(sel).value)
+    api('/campaigns/'+currentCampaignId, { method:'PATCH', body: JSON.stringify({ [key]: isNaN(val) ? null : val }) })
       .then(() => toast('Salvo.','success')).catch(e => toast(e.message,'error'))
   })
 })
@@ -2228,6 +2431,8 @@ function openEventDialog(ev, prefillDate) {
   $('#evData').value      = ev ? isoToYmd(ev.data) : (prefillDate || ymd(new Date()))
   $('#evHora').value      = ev?.hora || ''
   $('#evLocal').value     = ev?.local || ''
+  $('#evLat').value       = ev?.lat != null ? ev.lat : ''
+  $('#evLng').value       = ev?.lng != null ? ev.lng : ''
   $('#evCor').value       = ev?.cor || '#16a34a'
   populateCampaignSelect('#evCampaign', ev?.campaign_id || '')
   $('#evDeleteBtn').hidden = !isEdit
@@ -2245,6 +2450,8 @@ $('#eventForm')?.addEventListener('submit', async e => {
     data:        $('#evData').value,
     hora:        $('#evHora').value || undefined,
     local:       $('#evLocal').value.trim() || undefined,
+    lat:         parseFloat($('#evLat').value) || undefined,
+    lng:         parseFloat($('#evLng').value) || undefined,
     cor:         $('#evCor').value || undefined,
     campaign_id: $('#evCampaign').value || undefined,
   }
@@ -2324,6 +2531,155 @@ $('#notifMarkAll')?.addEventListener('click', async () => {
 document.addEventListener('click', e => {
   if (!$('.notif-wrap')?.contains(e.target)) { const dd = $('#notifDropdown'); if (dd) dd.hidden = true }
 })
+
+/* ── Mapa de eventos (Leaflet + OpenStreetMap) ─────────────────── */
+let _mapaLeaflet   = null          // singleton Leaflet instance
+let _mapaMarkers   = []            // layer group references for cleanup
+const mapaFilters  = { tarefas: true, campanhas: true, eventos: true }
+
+async function loadMapa() {
+  // Ensure data is loaded
+  try {
+    if (!(state.allTasks || []).length) {
+      const b = await api('/tasks/kanban')
+      state.allTasks = b ? Object.values(b).flat() : []
+    }
+    if (!(state.campaigns || []).length) {
+      try { const c = await api('/campaigns'); state.campaigns = Array.isArray(c) ? c : [] } catch {}
+    }
+    if (!(calState.events || []).length) {
+      try { const ev = await api('/events'); calState.events = Array.isArray(ev) ? ev : [] } catch {}
+    }
+  } catch (err) { toast(err.message, 'error') }
+
+  const container = document.getElementById('mapaContainer')
+  if (!container) return
+
+  if (!window.L) {
+    // Leaflet not available (e.g. network blocked) — show list only
+    container.innerHTML = '<div class="mapa-empty">Mapa indisponível. Usando lista de locais abaixo.</div>'
+    renderMapaList()
+    return
+  }
+
+  // Init map once; invalidate size if container was hidden on init
+  if (!_mapaLeaflet) {
+    _mapaLeaflet = window.L.map('mapaContainer', {
+      center: [-15.78, -47.93],   // centro geográfico do Brasil
+      zoom: 5,
+      attributionControl: true,
+    })
+    window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
+    }).addTo(_mapaLeaflet)
+  } else {
+    // Container may have been display:none — force size recalculation
+    requestAnimationFrame(() => _mapaLeaflet.invalidateSize())
+  }
+
+  renderMapaPins()
+  renderMapaList()
+}
+
+function buildMapaItems() {
+  const items = []
+  if (mapaFilters.tarefas) {
+    (state.allTasks || []).forEach(t => {
+      if (t.lat && t.lng) items.push({ kind: 'tarefa', id: t.id, title: t.titulo, local: t.local || '', lat: +t.lat, lng: +t.lng, color: (t.canal && CANAL_COLORS[t.canal]) || CAL_COLORS.tarefa, sub: CANAL_LABELS[t.canal] || t.canal || '' })
+    })
+  }
+  if (mapaFilters.campanhas) {
+    (state.campaigns || []).forEach(c => {
+      if (c.lat && c.lng) items.push({ kind: 'campanha', id: c.id, title: c.nome, local: c.local || '', lat: +c.lat, lng: +c.lng, color: c.cor || CAL_COLORS.campanha, sub: c.data_evento ? new Date(c.data_evento).toLocaleDateString('pt-BR') : '' })
+    })
+  }
+  if (mapaFilters.eventos) {
+    (calState.events || []).forEach(e => {
+      if (e.lat && e.lng) items.push({ kind: 'evento', id: e.id, title: e.titulo, local: e.local || '', lat: +e.lat, lng: +e.lng, color: e.cor || CAL_COLORS.evento, sub: e.data ? new Date(e.data + 'T00:00:00').toLocaleDateString('pt-BR') : '' })
+    })
+  }
+  return items
+}
+
+function renderMapaPins() {
+  if (!_mapaLeaflet || !window.L) return
+
+  // Remove old markers
+  _mapaMarkers.forEach(m => m.remove())
+  _mapaMarkers = []
+
+  const items = buildMapaItems()
+  if (!items.length) return
+
+  const bounds = []
+  items.forEach(it => {
+    const marker = window.L.circleMarker([it.lat, it.lng], {
+      radius: 9, color: '#fff', weight: 2,
+      fillColor: it.color, fillOpacity: 0.9,
+    })
+    const kindLabel = it.kind === 'tarefa' ? 'Tarefa' : it.kind === 'campanha' ? 'Campanha' : 'Evento'
+    marker.bindPopup(
+      `<span class="pop-kind">${kindLabel}</span>` +
+      `<strong>${escapeHtml(it.title)}</strong>` +
+      (it.local ? `<div style="color:#6B6359;font-size:.75rem">📍 ${escapeHtml(it.local)}</div>` : '') +
+      (it.sub ? `<div style="color:#6B6359;font-size:.75rem">${escapeHtml(it.sub)}</div>` : '') +
+      `<a class="pop-link" href="#">Ver detalhes →</a>`,
+      { maxWidth: 220 }
+    )
+    marker.on('popupopen', () => {
+      const a = marker.getPopup().getElement()?.querySelector('.pop-link')
+      if (a) a.addEventListener('click', ev => { ev.preventDefault(); marker.closePopup(); openMapaItem(it) })
+    })
+    marker.addTo(_mapaLeaflet)
+    _mapaMarkers.push(marker)
+    bounds.push([it.lat, it.lng])
+  })
+
+  // Fit map to markers if there are any
+  if (bounds.length) {
+    try { _mapaLeaflet.fitBounds(bounds, { padding: [32, 32], maxZoom: 14 }) } catch {}
+  }
+}
+
+function openMapaItem(it) {
+  if (it.kind === 'tarefa')   { navigate('tasks');    openPanel(it.id) }
+  if (it.kind === 'campanha') { openCampaignPanel(it.id) }
+  if (it.kind === 'evento') {
+    const ev = (calState.events || []).find(e => e.id === it.id)
+    if (ev) { navigate('calendar'); setTimeout(() => openEventDialog(ev), 100) }
+  }
+}
+
+function renderMapaList() {
+  const list = document.getElementById('mapaList')
+  if (!list) return
+  const items = buildMapaItems()
+  if (!items.length) {
+    list.innerHTML = '<div class="mapa-empty">Nenhuma tarefa, campanha ou evento com localização definida. Preencha o campo <em>Local</em> + coordenadas (lat/lng) nas tarefas, campanhas ou eventos para vê-los aqui.</div>'
+    return
+  }
+  list.innerHTML = '<div style="font-size:.8rem;color:var(--text-muted);margin-bottom:8px">Lista de locais — clique para abrir</div>' +
+    items.map(it => {
+      const kindLabel = it.kind === 'tarefa' ? 'Tarefa' : it.kind === 'campanha' ? 'Campanha' : 'Evento'
+      return `<div class="mapa-list-item" data-kind="${it.kind}" data-id="${it.id}" style="--mi-color:${it.color}">
+        <div class="mapa-list-icon" style="background:${it.color}"></div>
+        <div class="mapa-list-body">
+          <div class="mapa-list-title">${escapeHtml(it.title)}</div>
+          <div class="mapa-list-meta">${it.local ? `📍 ${escapeHtml(it.local)}` : ''}${it.sub ? ` · ${escapeHtml(it.sub)}` : ''}</div>
+        </div>
+        <span class="mapa-list-badge">${kindLabel}</span>
+      </div>`
+    }).join('')
+  list.querySelectorAll('.mapa-list-item').forEach(el =>
+    el.addEventListener('click', () => openMapaItem({ kind: el.dataset.kind, id: el.dataset.id }))
+  )
+}
+
+// Filter checkboxes
+$('#mapaShowTasks')?.addEventListener('change',     e => { mapaFilters.tarefas   = e.target.checked; renderMapaPins(); renderMapaList() })
+$('#mapaShowCampaigns')?.addEventListener('change', e => { mapaFilters.campanhas = e.target.checked; renderMapaPins(); renderMapaList() })
+$('#mapaShowEvents')?.addEventListener('change',    e => { mapaFilters.eventos   = e.target.checked; renderMapaPins(); renderMapaList() })
 
 /* ── Section reveal on scroll (IntersectionObserver) ───────────── */
 const _revealObserver = new IntersectionObserver((entries) => {

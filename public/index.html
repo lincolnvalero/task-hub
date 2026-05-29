@@ -7,7 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=20260526i" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/styles.css?v=20260529b" />
 </head>
 <body>
 
@@ -77,6 +78,10 @@
         <button class="nav-item" data-view="calendar" data-tip="Calendário">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <span>Calendário</span>
+        </button>
+        <button class="nav-item" data-view="mapa" data-tip="Mapa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Mapa</span>
         </button>
         <button class="nav-item admin-only" data-view="teams" data-tip="Equipes">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
@@ -380,6 +385,21 @@
           <div id="calGrid" class="cal-grid"></div>
         </section>
 
+        <!-- MAPA DE EVENTOS -->
+        <section id="mapaView" class="view" hidden>
+          <div class="section-header">
+            <h2>Mapa de eventos</h2>
+            <div class="header-right-group">
+              <label class="cal-filter"><input type="checkbox" id="mapaShowTasks" checked /> <span class="cf-dot" style="background:#6366f1"></span> Tarefas</label>
+              <label class="cal-filter"><input type="checkbox" id="mapaShowCampaigns" checked /> <span class="cf-dot" style="background:#E8743B"></span> Campanhas</label>
+              <label class="cal-filter"><input type="checkbox" id="mapaShowEvents" checked /> <span class="cf-dot" style="background:#16a34a"></span> Eventos</label>
+            </div>
+          </div>
+          <p class="muted" style="margin-top:-8px;margin-bottom:14px">Visualize tarefas, campanhas e eventos que têm localização definida. Mapas servidos por <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" style="color:var(--primary)">OpenStreetMap</a>.</p>
+          <div id="mapaContainer" class="mapa-container"></div>
+          <div id="mapaList" class="mapa-list"></div>
+        </section>
+
       </main>
     </div>
   </div>
@@ -448,6 +468,16 @@
               <div class="pf-item">
                 <span class="pf-label">Local</span>
                 <input type="text" id="cdpLocal" class="pf-input" placeholder="Endereço do evento" />
+              </div>
+            </div>
+            <div class="pf-row">
+              <div class="pf-item">
+                <span class="pf-label">Latitude</span>
+                <input type="number" id="cdpLat" class="pf-input" placeholder="ex: -23.5505" step="any" />
+              </div>
+              <div class="pf-item">
+                <span class="pf-label">Longitude</span>
+                <input type="number" id="cdpLng" class="pf-input" placeholder="ex: -46.6333" step="any" />
               </div>
             </div>
             <div class="pf-row">
@@ -562,6 +592,22 @@
             <div class="pf-item">
               <span class="pf-label">Dias de produção</span>
               <input type="number" id="panelProductionDays" class="pf-input" min="1" max="365" placeholder="—" />
+            </div>
+          </div>
+          <div class="pf-row">
+            <div class="pf-item full">
+              <span class="pf-label">Local</span>
+              <input type="text" id="panelLocal" class="pf-input" placeholder="Endereço ou nome do local" />
+            </div>
+          </div>
+          <div class="pf-row">
+            <div class="pf-item">
+              <span class="pf-label">Latitude</span>
+              <input type="number" id="panelLat" class="pf-input" placeholder="ex: -23.5505" step="any" />
+            </div>
+            <div class="pf-item">
+              <span class="pf-label">Longitude</span>
+              <input type="number" id="panelLng" class="pf-input" placeholder="ex: -46.6333" step="any" />
             </div>
           </div>
           <div class="pf-row">
@@ -681,7 +727,7 @@
   <dialog id="taskDialog">
     <form id="taskForm">
       <h3>Nova tarefa</h3>
-      <label>Título <input type="text" id="tTitulo" required minlength="3" /></label>
+      <label>Título <span class="req">*</span><input type="text" id="tTitulo" required minlength="3" /></label>
       <label>Descrição <textarea id="tDescricao" rows="3"></textarea></label>
       <div class="grid-2">
         <label>Prioridade
@@ -710,11 +756,18 @@
             <option value="OUTRO">Outro</option>
           </select>
         </label>
-        <label>Equipe <select id="tTeam" required></select></label>
+        <label>Campanha
+          <select id="tCampaign"><option value="">— Nenhuma —</option></select>
+        </label>
       </div>
-      <label>Campanha
-        <select id="tCampaign"><option value="">— Nenhuma —</option></select>
-      </label>
+      <label>Equipes <span class="req">*</span></label>
+      <div class="chip-picker">
+        <div class="chip-picker-chips" id="teamChips"></div>
+        <div class="chip-picker-addrow">
+          <input type="text" id="teamPickerInput" class="chip-picker-input" placeholder="+ Adicionar equipe…" autocomplete="off" />
+          <div class="chip-picker-dropdown" id="teamPickerDropdown" hidden></div>
+        </div>
+      </div>
       <div class="grid-2">
         <label>Início planejado <input type="date" id="tStartDate" /></label>
         <label>Dias de produção
@@ -722,10 +775,14 @@
           <span class="hint">Preencha ambos para calcular o prazo automaticamente.</span>
         </label>
       </div>
-      <label>Responsáveis
-        <select id="tUsers" multiple size="4"></select>
-        <span class="hint">Ctrl/Cmd para selecionar mais de um.</span>
-      </label>
+      <label>Responsáveis</label>
+      <div class="chip-picker">
+        <div class="chip-picker-chips" id="userChips"></div>
+        <div class="chip-picker-addrow">
+          <input type="text" id="userPickerInput" class="chip-picker-input" placeholder="+ Adicionar responsável…" autocomplete="off" />
+          <div class="chip-picker-dropdown" id="userPickerDropdown" hidden></div>
+        </div>
+      </div>
       <p id="taskFormError" class="form-error" hidden></p>
       <div class="dialog-actions">
         <button type="button" id="cancelTaskBtn" class="btn-ghost">Cancelar</button>
@@ -778,6 +835,10 @@
       <div class="grid-2">
         <label>Local <input type="text" id="evLocal" placeholder="Opcional" /></label>
         <label>Cor <input type="color" id="evCor" value="#16a34a" style="height:38px;padding:2px" /></label>
+      </div>
+      <div class="grid-2">
+        <label>Latitude <input type="number" id="evLat" placeholder="ex: -23.5505" step="any" /></label>
+        <label>Longitude <input type="number" id="evLng" placeholder="ex: -46.6333" step="any" /></label>
       </div>
       <label>Campanha
         <select id="evCampaign"><option value="">— Nenhuma —</option></select>
@@ -850,9 +911,22 @@
     </div>
   </dialog>
 
+  <!-- Prompt dialog — replaces native window.prompt() with a styled modal -->
+  <dialog id="promptDialog" class="confirm-dialog">
+    <div class="confirm-body">
+      <p id="promptMsg" class="confirm-msg"></p>
+      <textarea id="promptInput" class="prompt-textarea" rows="3" placeholder="Opcional…"></textarea>
+      <div class="dialog-actions">
+        <button id="promptCancel" class="btn-ghost">Cancelar</button>
+        <button id="promptOk" class="btn-primary">Confirmar</button>
+      </div>
+    </div>
+  </dialog>
+
   <div id="toastContainer" class="toast-container"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260526i"></script>
+  <script src="/app.js?v=20260529b"></script>
 </body>
 </html>

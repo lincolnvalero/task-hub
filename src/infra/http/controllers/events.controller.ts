@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { supabase } from '../../database/supabase'
 import { requireAuth, requireAdmin } from '../middlewares/auth.middleware'
 
-const EVENT_SELECT = 'id, titulo, descricao, data, hora, local, cor, campaign_id, created_at'
+const EVENT_SELECT = 'id, titulo, descricao, data, hora, local, lat, lng, cor, campaign_id, created_at'
 
 const createEventSchema = z.object({
   titulo:      z.string().min(1).max(200),
@@ -12,6 +12,8 @@ const createEventSchema = z.object({
   data:        z.string().min(8), // YYYY-MM-DD
   hora:        z.string().max(5).optional(),
   local:       z.string().max(300).optional(),
+  lat:         z.coerce.number().optional(),
+  lng:         z.coerce.number().optional(),
   cor:         z.string().max(20).optional(),
   campaign_id: z.string().min(1).optional(),
 })
@@ -42,6 +44,8 @@ export async function eventsRoutes(app: FastifyInstance) {
         data:        body.data.data,
         hora:        body.data.hora ?? null,
         local:       body.data.local ?? null,
+        lat:         body.data.lat ?? null,
+        lng:         body.data.lng ?? null,
         cor:         body.data.cor ?? null,
         campaign_id: body.data.campaign_id ?? null,
       })
@@ -56,7 +60,7 @@ export async function eventsRoutes(app: FastifyInstance) {
     const body = updateEventSchema.safeParse(request.body)
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
     const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    for (const k of ['titulo','descricao','data','hora','local','cor','campaign_id'] as const) {
+    for (const k of ['titulo','descricao','data','hora','local','lat','lng','cor','campaign_id'] as const) {
       if (body.data[k] !== undefined) payload[k] = body.data[k]
     }
     const { data, error } = await supabase
