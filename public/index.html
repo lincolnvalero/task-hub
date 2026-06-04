@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/styles.css?v=20260529b" />
+  <link rel="stylesheet" href="/styles.css?v=20260529c" />
 </head>
 <body>
 
@@ -403,6 +403,100 @@
       </main>
     </div>
   </div>
+
+  <!-- EVENT OPERATION PANEL -->
+  <div id="eventOpOverlay" class="panel-overlay" hidden>
+    <div class="panel-backdrop" id="eventOpBackdrop"></div>
+    <aside class="event-op-panel" id="eventOpPanel">
+      <div class="eop-header">
+        <div class="eop-header-left">
+          <div id="eopColorDot" class="eop-color-dot"></div>
+          <div>
+            <h2 id="eopTitle" class="eop-title"></h2>
+            <div id="eopMeta" class="eop-meta"></div>
+          </div>
+        </div>
+        <div class="eop-header-actions">
+          <button id="eopEditBtn" class="btn-ghost btn-sm admin-only" title="Editar evento">✏ Editar</button>
+          <button id="closeEventOpBtn" class="icon-btn panel-close" title="Fechar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="eop-progress-bar">
+        <div id="eopProgressFill" class="eop-progress-fill" style="width:0%"></div>
+      </div>
+      <div id="eopProgressLabel" class="eop-progress-label"></div>
+
+      <div class="eop-filter-row">
+        <div class="eop-phase-tabs" role="tablist">
+          <button class="eop-tab active" data-fase="ALL" role="tab">Tudo</button>
+          <button class="eop-tab" data-fase="PRE" role="tab">📋 Pré-evento</button>
+          <button class="eop-tab" data-fase="INTRA" role="tab">⚡ Intra-evento</button>
+          <button class="eop-tab" data-fase="POS" role="tab">✅ Pós-evento</button>
+        </div>
+        <label class="eop-my-filter">
+          <input type="checkbox" id="eopMyDeptFilter" />
+          <span>Meu dept.</span>
+        </label>
+      </div>
+
+      <div id="eopChecklistWrap" class="eop-checklist-wrap"></div>
+
+      <div id="eopAddWrap" class="eop-add-wrap admin-only">
+        <div class="eop-add-row">
+          <select id="eopAddFase" class="eop-add-select">
+            <option value="PRE">Pré-evento</option>
+            <option value="INTRA" selected>Intra-evento</option>
+            <option value="POS">Pós-evento</option>
+          </select>
+          <input id="eopAddTexto" type="text" class="eop-add-input" placeholder="Novo item do checklist…" maxlength="500" />
+        </div>
+        <div class="eop-add-row">
+          <input id="eopAddDept" type="text" class="eop-add-input" placeholder="Departamento (ex: Audiovisual)" />
+          <input id="eopAddPrazo" type="datetime-local" class="eop-add-input" title="Prazo do item" />
+          <button id="eopAddBtn" class="btn-primary btn-sm">+ Adicionar</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- COMMAND PALETTE (Ctrl+K) -->
+  <dialog id="cmdPaletteDialog" class="cmd-palette-dialog">
+    <div class="cmd-palette-wrap">
+      <div class="cmd-search-wrap">
+        <svg class="cmd-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="cmdInput" type="text" class="cmd-input" placeholder="Buscar tarefas, ações, views…" autocomplete="off" />
+        <kbd class="cmd-esc-hint">esc</kbd>
+      </div>
+      <div id="cmdResults" class="cmd-results"></div>
+    </div>
+  </dialog>
+
+  <!-- MOBILE BOTTOM NAV -->
+  <nav id="mobileBottomNav" class="mobile-bottom-nav" hidden>
+    <button class="mbn-item" data-view="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Início</span>
+    </button>
+    <button class="mbn-item" data-view="tasks">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span>Tarefas</span>
+    </button>
+    <button class="mbn-item mbn-fab" id="mbnNewTask">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+    <button class="mbn-item" data-view="calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span>Agenda</span>
+    </button>
+    <button class="mbn-item" id="mbnNotif">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <span id="mbnNotifLabel">Avisos</span>
+      <span id="mbnNotifBadge" class="mbn-badge" hidden></span>
+    </button>
+  </nav>
 
   <!-- TEAM DETAIL PANEL -->
   <div id="teamDetailOverlay" class="panel-overlay" hidden>
@@ -927,6 +1021,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260529b"></script>
+  <script src="/app.js?v=20260529c"></script>
 </body>
 </html>

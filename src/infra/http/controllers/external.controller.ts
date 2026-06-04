@@ -48,6 +48,7 @@ const briefingSchema = z.object({
 const briefingReviewSchema = z.object({
   status:      z.enum(['CONVERTIDO', 'REJEITADO']),
   campaign_id: z.string().min(1).optional(),
+  task_id:     z.string().min(1).optional(), // tarefa pré-criada externamente → pula criação interna
 })
 
 export async function externalRoutes(app: FastifyInstance) {
@@ -212,25 +213,30 @@ export async function externalRoutes(app: FastifyInstance) {
 
     let createdTaskId: string | null = null
 
-    // Converter em tarefa: cria uma tarefa no Backlog a partir do briefing
     if (body.data.status === 'CONVERTIDO') {
-      const CANAIS = ['INSTAGRAM','YOUTUBE','TIKTOK','LINKEDIN','WHATSAPP','SITE','EMAIL','EVENTO','APRESENTACAO','OUTRO']
-      const canal = CANAIS.includes(String(existing.canal)) ? existing.canal : null
-      const taskId = randomUUID()
-      const { error: taskErr } = await supabase.from('tasks').insert({
-        id:          taskId,
-        titulo:      `${existing.tipo} — ${existing.nome}`.slice(0, 200),
-        descricao:   existing.descricao,
-        status:      'A_FAZER',
-        prioridade:  'MEDIA',
-        tipo_tarefa: existing.tipo,
-        solicitante: existing.nome,
-        canal,
-        campaign_id: (body.data as { campaign_id?: string }).campaign_id ?? null,
-        data_fim_planejado: existing.data_evento ? new Date(existing.data_evento).toISOString() : null,
-      })
-      if (taskErr) return reply.status(500).send({ error: taskErr.message })
-      createdTaskId = taskId
+      if (body.data.task_id) {
+        // Tarefa já criada pelo frontend (com equipes, responsáveis, datas etc.) — apenas vincula
+        createdTaskId = body.data.task_id
+      } else {
+        // Criação simplificada interna (fallback legacy — sem equipes)
+        const CANAIS = ['INSTAGRAM','YOUTUBE','TIKTOK','LINKEDIN','WHATSAPP','SITE','EMAIL','EVENTO','APRESENTACAO','OUTRO']
+        const canal = CANAIS.includes(String(existing.canal)) ? existing.canal : null
+        const taskId = randomUUID()
+        const { error: taskErr } = await supabase.from('tasks').insert({
+          id:          taskId,
+          titulo:      `${existing.tipo} — ${existing.nome}`.slice(0, 200),
+          descricao:   existing.descricao,
+          status:      'A_FAZER',
+          prioridade:  'MEDIA',
+          tipo_tarefa: existing.tipo,
+          solicitante: existing.nome,
+          canal,
+          campaign_id: body.data.campaign_id ?? null,
+          data_fim_planejado: existing.data_evento ? new Date(existing.data_evento).toISOString() : null,
+        })
+        if (taskErr) return reply.status(500).send({ error: taskErr.message })
+        createdTaskId = taskId
+      }
     }
 
     const { error } = await supabase

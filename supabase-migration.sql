@@ -201,3 +201,23 @@ CREATE POLICY "calendar_all" ON calendar_events FOR ALL USING (true) WITH CHECK 
 -- lat/lng para eventos de calendário (Fase 6 — Mapa) — idempotente
 ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
 ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+
+-- 12. Checklist de operação de eventos (Pré / Intra / Pós evento)
+CREATE TABLE IF NOT EXISTS event_checklist_items (
+  id              TEXT        PRIMARY KEY,
+  event_id        TEXT        NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+  fase            TEXT        NOT NULL DEFAULT 'INTRA' CHECK (fase IN ('PRE','INTRA','POS')),
+  texto           TEXT        NOT NULL CHECK (char_length(texto) BETWEEN 1 AND 500),
+  responsavel_id  TEXT        REFERENCES users(id) ON DELETE SET NULL,
+  departamento    TEXT,
+  prazo           TIMESTAMPTZ,
+  feito           BOOLEAN     NOT NULL DEFAULT false,
+  feito_em        TIMESTAMPTZ,
+  feito_por       TEXT        REFERENCES users(id) ON DELETE SET NULL,
+  ordem           INT         NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_ecl_event ON event_checklist_items(event_id);
+ALTER TABLE event_checklist_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ecl_all" ON event_checklist_items;
+CREATE POLICY "ecl_all" ON event_checklist_items FOR ALL USING (true) WITH CHECK (true);

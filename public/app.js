@@ -261,6 +261,8 @@ function navigate(view) {
   const el = $(`#${view}View`)
   if (el) el.hidden = false
   $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view))
+  // Sync mobile bottom nav active state
+  $$('.mbn-item[data-view]').forEach(btn => btn.classList.toggle('active', btn.dataset.view === view))
   if (view === 'dashboard') loadDashboard()
   if (view === 'tasks')     loadTasks()
   if (view === 'teams')     loadTeams()
@@ -2074,28 +2076,7 @@ function renderBriefings(briefings) {
     })
   )
   $$('[data-bf-approve]', list).forEach(btn =>
-    btn.addEventListener('click', async () => {
-      const bId = btn.dataset.bfApprove
-      const briefing = (state._lastBriefings || []).find(b => b.id === bId) || { nome: 'este solicitante' }
-      const result = await briefingConvertDialog(briefing)
-      if (!result.confirmed) return
-      try {
-        const body = { status: 'CONVERTIDO' }
-        if (result.campaign_id) body.campaign_id = result.campaign_id
-        const resp = await api('/briefing/' + bId, { method: 'PATCH', body: JSON.stringify(body) })
-        if (resp?.task_id) {
-          const taskId = resp.task_id
-          toast('✓ Tarefa criada — clique para abrir', 'success', () => {
-            navigate('tasks')
-            setTimeout(() => openPanel(taskId), 300)
-          })
-          loadTasks()
-        } else {
-          toast('Briefing convertido.', 'success')
-        }
-        loadBriefings()
-      } catch (err) { toast(err.message, 'error') }
-    })
+    btn.addEventListener('click', () => briefingConvertDialogFull_handler(btn.dataset.bfApprove))
   )
   $$('[data-bf-reject]', list).forEach(btn =>
     btn.addEventListener('click', async () => {
@@ -2394,7 +2375,7 @@ function renderCalendar() {
 function openCalendarItem(kind, id) {
   if (kind === 'tarefa')   { navigate('tasks'); openPanel(id) }
   else if (kind === 'campanha') { openCampaignPanel(id) }
-  else if (kind === 'evento')   { const ev = (calState.events||[]).find(e => e.id === id); if (ev) openEventDialog(ev) }
+  else if (kind === 'evento')   { openEventOpPanel(id) }   // abre painel de operação (checklist)
 }
 
 function openDayEvents(dateKey, dayItems) {
@@ -2645,10 +2626,7 @@ function renderMapaPins() {
 function openMapaItem(it) {
   if (it.kind === 'tarefa')   { navigate('tasks');    openPanel(it.id) }
   if (it.kind === 'campanha') { openCampaignPanel(it.id) }
-  if (it.kind === 'evento') {
-    const ev = (calState.events || []).find(e => e.id === it.id)
-    if (ev) { navigate('calendar'); setTimeout(() => openEventDialog(ev), 100) }
-  }
+  if (it.kind === 'evento')   { navigate('calendar'); setTimeout(() => openEventOpPanel(it.id), 100) }
 }
 
 function renderMapaList() {
@@ -2689,6 +2667,637 @@ function observeReveals(root = document) {
   $$('.reveal:not(.is-visible)', root).forEach(el => _revealObserver.observe(el))
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   ── EVENT OPERATION PANEL (Checklist Pré/Intra/Pós Evento) ──────
+   ══════════════════════════════════════════════════════════════════ */
+let _eopEventId   = null
+let _eopItems     = []
+let _eopFaseTab   = 'ALL'
+let _eopMyFilter  = false
+
+async function openEventOpPanel(eventId) {
+  const ev = (calState.events || []).find(e => e.id === eventId)
+  if (!ev) return
+
+  _eopEventId  = eventId
+  _eopFaseTab  = 'ALL'
+  _eopMyFilter = false
+
+  // Populate header
+  const cor = ev.cor || '#16a34a'
+  $('#eopColorDot').style.background = cor
+  $('#eopTitle').textContent = ev.titulo
+  const parts = []
+  if (ev.data)  parts.push(new Date(ev.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }))
+  if (ev.hora)  parts.push('às ' + ev.hora)
+  if (ev.local) parts.push('📍 ' + ev.local)
+  $('#eopMeta').textContent = parts.join(' · ')
+
+  // Reset filter state
+  $('#eopMyDeptFilter').checked = false
+  $$('.eop-tab').forEach(t => t.classList.toggle('active', t.dataset.fase === 'ALL'))
+
+  // Show panel
+  const overlay = $('#eventOpOverlay')
+  overlay.hidden = false
+  requestAnimationFrame(() => overlay.classList.add('is-open'))
+
+  // Admin visibility
+  $$('.admin-only', $('#eventOpPanel')).forEach(el => el.classList.toggle('hidden-non-admin', !isAdmin()))
+
+  await reloadEopItems()
+}
+
+async function reloadEopItems() {
+  if (!_eopEventId) return
+  try {
+    _eopItems = await api('/events/' + _eopEventId + '/checklist')
+    renderEopChecklist()
+  } catch (err) { toast(err.message, 'error') }
+}
+
+function renderEopChecklist() {
+  const wrap   = $('#eopChecklistWrap')
+  if (!wrap) return
+
+  const userId     = state.user?.id || state.user?.sub
+  const userDept   = state.user?.departamento || state.user?.cargo || ''
+
+  let items = _eopItems
+  if (_eopFaseTab !== 'ALL') items = items.filter(i => i.fase === _eopFaseTab)
+  if (_eopMyFilter && userDept) items = items.filter(i => !i.departamento || i.departamento.toLowerCase() === userDept.toLowerCase())
+
+  // Progress
+  const totalAll = _eopItems.length
+  const doneAll  = _eopItems.filter(i => i.feito).length
+  const pct      = totalAll > 0 ? Math.round((doneAll / totalAll) * 100) : 0
+  $('#eopProgressFill').style.width = pct + '%'
+  $('#eopProgressLabel').textContent = totalAll > 0 ? `${doneAll} de ${totalAll} itens concluídos (${pct}%)` : 'Sem itens'
+
+  if (!items.length) {
+    wrap.innerHTML = `<div class="eop-empty">${_eopFaseTab === 'ALL' ? 'Nenhum item no checklist deste evento ainda.' : 'Nenhum item nesta fase.'}<br><span style="font-size:.78rem;color:var(--text-dim)">Use o formulário abaixo para adicionar (somente administradores).</span></div>`
+    return
+  }
+
+  const FASE_LABELS = { PRE: '📋 Pré-evento', INTRA: '⚡ Intra-evento', POS: '✅ Pós-evento' }
+  const FASE_ORDER  = ['PRE', 'INTRA', 'POS']
+  const groups      = {}
+  FASE_ORDER.forEach(f => { groups[f] = [] })
+  items.forEach(i => { (groups[i.fase] ??= []).push(i) })
+
+  const fasesToShow = _eopFaseTab === 'ALL' ? FASE_ORDER : [_eopFaseTab]
+  wrap.innerHTML = fasesToShow.map(fase => {
+    const fItems = groups[fase] || []
+    if (!fItems.length && _eopFaseTab !== 'ALL') return `<div class="eop-empty">Nenhum item nesta fase.</div>`
+    if (!fItems.length) return ''
+    const doneF = fItems.filter(i => i.feito).length
+    return `
+      <div class="eop-phase-group">
+        <p class="eop-phase-label">
+          ${FASE_LABELS[fase] || fase}
+          <span class="eop-phase-count">${doneF}/${fItems.length}</span>
+        </p>
+        ${fItems.map(item => {
+          const isMine = item.responsavel_id === userId
+          const prazoLabel = item.prazo ? new Date(item.prazo).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
+          const isOverdue  = item.prazo && !item.feito && new Date(item.prazo) < new Date()
+          const feitoPorUser = item.feito_por ? (state.users || []).find(u => u.id === item.feito_por) : null
+          return `<div class="eop-item ${item.feito ? 'done' : ''} ${isMine ? 'mine' : ''}" data-item-id="${item.id}">
+            <button class="eop-check ${item.feito ? 'checked' : ''}" data-check="${item.id}" title="${item.feito ? 'Desmarcar' : 'Marcar como feito'}">
+              ${item.feito ? '✓' : ''}
+            </button>
+            <div class="eop-item-body">
+              <div class="eop-item-text ${item.feito ? 'done-text' : ''}">${escapeHtml(item.texto)}</div>
+              <div class="eop-item-badges">
+                ${item.departamento ? `<span class="eop-badge dept">${escapeHtml(item.departamento)}</span>` : ''}
+                ${prazoLabel ? `<span class="eop-badge prazo ${isOverdue ? 'overdue' : ''}">📅 ${prazoLabel}</span>` : ''}
+                ${item.feito && feitoPorUser ? `<span class="eop-badge feito-por">✓ ${escapeHtml(feitoPorUser.nome)}</span>` : ''}
+              </div>
+            </div>
+            ${isAdmin() ? `<button class="eop-item-del" data-del="${item.id}" title="Remover">×</button>` : ''}
+          </div>`
+        }).join('')}
+      </div>`
+  }).join('')
+
+  // Events
+  $$('.eop-check', wrap).forEach(btn =>
+    btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      const itemId = btn.dataset.check
+      const item   = _eopItems.find(i => i.id === itemId)
+      if (!item) return
+      try {
+        await api('/events/' + _eopEventId + '/checklist/' + itemId, {
+          method: 'PATCH', body: JSON.stringify({ feito: !item.feito }),
+        })
+        await reloadEopItems()
+      } catch (err) { toast(err.message, 'error') }
+    })
+  )
+  $$('.eop-item-del', wrap).forEach(btn =>
+    btn.addEventListener('click', async e => {
+      e.stopPropagation()
+      if (!await confirmDialog('Remover este item do checklist?')) return
+      try {
+        await api('/events/' + _eopEventId + '/checklist/' + btn.dataset.del, { method: 'DELETE' })
+        await reloadEopItems()
+        toast('Item removido.', 'success')
+      } catch (err) { toast(err.message, 'error') }
+    })
+  )
+}
+
+// Phase tab clicks
+$$('.eop-tab').forEach(tab => tab.addEventListener('click', () => {
+  _eopFaseTab = tab.dataset.fase
+  $$('.eop-tab').forEach(t => t.classList.toggle('active', t === tab))
+  renderEopChecklist()
+}))
+
+// "My dept" filter
+$('#eopMyDeptFilter')?.addEventListener('change', e => {
+  _eopMyFilter = e.target.checked
+  renderEopChecklist()
+})
+
+// Add item
+$('#eopAddBtn')?.addEventListener('click', async () => {
+  const texto = $('#eopAddTexto')?.value.trim()
+  if (!texto || !_eopEventId) { toast('Informe o texto do item.', 'error'); return }
+  try {
+    await api('/events/' + _eopEventId + '/checklist', {
+      method: 'POST',
+      body: JSON.stringify({
+        fase:        $('#eopAddFase').value,
+        texto,
+        departamento: $('#eopAddDept').value.trim() || undefined,
+        prazo:        $('#eopAddPrazo').value ? new Date($('#eopAddPrazo').value).toISOString() : undefined,
+      }),
+    })
+    $('#eopAddTexto').value = ''; $('#eopAddDept').value = ''; $('#eopAddPrazo').value = ''
+    await reloadEopItems()
+    toast('Item adicionado.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+})
+$('#eopAddTexto')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#eopAddBtn').click() } })
+
+// Close panel
+function closeEventOpPanel() {
+  const overlay = $('#eventOpOverlay')
+  if (!overlay) return
+  overlay.classList.remove('is-open')
+  setTimeout(() => { overlay.hidden = true }, 300)
+  _eopEventId = null
+}
+$('#closeEventOpBtn')?.addEventListener('click', closeEventOpPanel)
+$('#eventOpBackdrop')?.addEventListener('click', closeEventOpPanel)
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#eventOpOverlay')?.hidden) closeEventOpPanel() })
+
+// Edit button inside panel → open the form dialog
+$('#eopEditBtn')?.addEventListener('click', () => {
+  const ev = (calState.events || []).find(e => e.id === _eopEventId)
+  if (ev) { closeEventOpPanel(); setTimeout(() => openEventDialog(ev), 100) }
+})
+
+// openCalendarItem e openMapaItem já foram atualizados acima para usar openEventOpPanel.
+
+/* ══════════════════════════════════════════════════════════════════
+   ── ENHANCED BRIEFING → TASK CONVERSION ─────────────────────────
+   ══════════════════════════════════════════════════════════════════ */
+function briefingConvertDialogFull(briefing) {
+  return new Promise(resolve => {
+    const dlg = document.createElement('dialog')
+    dlg.className = 'bf-convert-dialog'
+
+    const camps = state.campaigns || []
+    const teams = state.teams     || []
+    const users = state.users     || []
+
+    // Pre-fill from briefing
+    const defaultTitulo = `${briefing.tipo || ''} — ${briefing.nome || ''}`.replace(/^ — |— $/, '').slice(0, 200)
+    const defaultCanal  = briefing.canal || ''
+    const defaultDesc   = briefing.descricao || ''
+    const defaultPrazo  = briefing.data_evento ? new Date(briefing.data_evento).toISOString().slice(0, 10) : ''
+    const defaultTipo   = briefing.tipo || ''
+
+    dlg.innerHTML = `
+      <div class="bf-dlg-header">
+        <h3>Converter briefing em tarefa</h3>
+        <button type="button" id="bfDlgClose" class="icon-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="bf-dlg-body">
+        <div class="bf-dlg-row single">
+          <div class="bf-field">
+            <label>Título da tarefa *</label>
+            <input type="text" id="bfTitulo" value="${escapeHtml(defaultTitulo)}" maxlength="200" required />
+          </div>
+        </div>
+        <div class="bf-dlg-row">
+          <div class="bf-field">
+            <label>Prioridade</label>
+            <select id="bfPrioridade">
+              <option value="BAIXA">Baixa</option>
+              <option value="MEDIA" selected>Média</option>
+              <option value="ALTA">Alta</option>
+              <option value="URGENTE">Urgente</option>
+            </select>
+          </div>
+          <div class="bf-field">
+            <label>Canal</label>
+            <select id="bfCanal">
+              <option value="">— Nenhum —</option>
+              <option value="INSTAGRAM" ${defaultCanal==='INSTAGRAM'?'selected':''}>Instagram</option>
+              <option value="YOUTUBE"   ${defaultCanal==='YOUTUBE'?'selected':''}>YouTube</option>
+              <option value="TIKTOK"    ${defaultCanal==='TIKTOK'?'selected':''}>TikTok</option>
+              <option value="LINKEDIN"  ${defaultCanal==='LINKEDIN'?'selected':''}>LinkedIn</option>
+              <option value="WHATSAPP"  ${defaultCanal==='WHATSAPP'?'selected':''}>WhatsApp</option>
+              <option value="SITE"      ${defaultCanal==='SITE'?'selected':''}>Site</option>
+              <option value="EMAIL"     ${defaultCanal==='EMAIL'?'selected':''}>E-mail</option>
+              <option value="EVENTO"    ${defaultCanal==='EVENTO'?'selected':''}>Evento</option>
+              <option value="APRESENTACAO" ${defaultCanal==='APRESENTACAO'?'selected':''}>Apresentação</option>
+              <option value="OUTRO"     ${defaultCanal==='OUTRO'?'selected':''}>Outro</option>
+            </select>
+          </div>
+        </div>
+        <div class="bf-dlg-row">
+          <div class="bf-field">
+            <label>Tipo de tarefa</label>
+            <input type="text" id="bfTipo" value="${escapeHtml(defaultTipo)}" maxlength="100" />
+          </div>
+          <div class="bf-field">
+            <label>Solicitante</label>
+            <input type="text" id="bfSolicitante" value="${escapeHtml(briefing.nome || '')}" maxlength="100" />
+          </div>
+        </div>
+        <div class="bf-dlg-row">
+          <div class="bf-field">
+            <label>Início planejado</label>
+            <input type="date" id="bfInicio" />
+          </div>
+          <div class="bf-field">
+            <label>Prazo</label>
+            <input type="date" id="bfPrazo" value="${defaultPrazo}" />
+          </div>
+        </div>
+        <div class="bf-dlg-row single">
+          <div class="bf-field">
+            <label>Campanha</label>
+            <select id="bfCampSel">
+              <option value="">— Sem campanha —</option>
+              ${camps.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="bf-dlg-row single">
+          <div class="bf-field">
+            <label>Equipes *</label>
+            <div class="chip-picker" id="bfTeamPicker">
+              <div class="chip-picker-chips" id="bfTeamChips"></div>
+              <div class="chip-picker-addrow">
+                <input type="text" id="bfTeamInput" class="chip-picker-input" placeholder="+ Adicionar equipe…" autocomplete="off" />
+                <div class="chip-picker-dropdown" id="bfTeamDropdown" hidden></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bf-dlg-row single">
+          <div class="bf-field">
+            <label>Responsáveis</label>
+            <div class="chip-picker" id="bfUserPicker">
+              <div class="chip-picker-chips" id="bfUserChips"></div>
+              <div class="chip-picker-addrow">
+                <input type="text" id="bfUserInput" class="chip-picker-input" placeholder="+ Adicionar responsável…" autocomplete="off" />
+                <div class="chip-picker-dropdown" id="bfUserDropdown" hidden></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bf-dlg-row single">
+          <div class="bf-field">
+            <label>Descrição</label>
+            <textarea id="bfDescricao" rows="3" maxlength="2000">${escapeHtml(defaultDesc)}</textarea>
+          </div>
+        </div>
+        <p id="bfDlgError" style="color:var(--danger);font-size:.82rem;margin:0" hidden></p>
+      </div>
+      <div class="bf-dlg-footer">
+        <button type="button" id="bfDlgCancel" class="btn-ghost">Cancelar</button>
+        <button type="button" id="bfDlgOk" class="btn-primary">✓ Criar tarefa</button>
+      </div>`
+
+    document.body.appendChild(dlg)
+    dlg.showModal()
+
+    // Chip pickers — reuse the app's pick infrastructure inline
+    const bfTeamIds = [], bfUserIds = []
+    function renderBfChips(chips, ids, items, idKey, labelKey, colorFn) {
+      chips.innerHTML = ids.map(id => {
+        const it = items.find(x => x[idKey] === id)
+        if (!it) return ''
+        const clr = colorFn(it)
+        return `<span class="chip-tag" data-remove-id="${id}" style="--chip-color:${clr}">
+          ${escapeHtml(it[labelKey] || it.nome || it.name || '')}
+          <button type="button" class="chip-remove" aria-label="Remover">×</button>
+        </span>`
+      }).join('')
+      chips.querySelectorAll('.chip-remove').forEach(btn =>
+        btn.addEventListener('click', () => {
+          const rid = btn.closest('.chip-tag').dataset.removeId
+          const arr = chips === bfTeamChipsEl ? bfTeamIds : bfUserIds
+          const idx = arr.indexOf(rid); if (idx > -1) arr.splice(idx, 1)
+          renderBfChips(chips, arr, items, idKey, labelKey, colorFn)
+        })
+      )
+    }
+    const bfTeamChipsEl = dlg.querySelector('#bfTeamChips')
+    const bfUserChipsEl = dlg.querySelector('#bfUserChips')
+
+    function makeDropdown(inputEl, dropdownEl, items, idKey, labelKey, targetIds, chipsEl, colorFn) {
+      inputEl.addEventListener('input', () => {
+        const q = inputEl.value.toLowerCase()
+        const matches = items.filter(x => (x[labelKey]||x.nome||x.name||'').toLowerCase().includes(q) && !targetIds.includes(x[idKey]))
+        if (!matches.length) { dropdownEl.hidden = true; return }
+        dropdownEl.innerHTML = matches.slice(0, 8).map(x =>
+          `<div class="chip-dd-item" data-id="${x[idKey]}">${escapeHtml(x[labelKey]||x.nome||x.name||'')}</div>`
+        ).join('')
+        dropdownEl.hidden = false
+        dropdownEl.querySelectorAll('.chip-dd-item').forEach(item =>
+          item.addEventListener('click', () => {
+            targetIds.push(item.dataset.id)
+            inputEl.value = ''; dropdownEl.hidden = true
+            renderBfChips(chipsEl, targetIds, items, idKey, labelKey, colorFn)
+          })
+        )
+      })
+      inputEl.addEventListener('keydown', e => { if (e.key === 'Escape') dropdownEl.hidden = true })
+    }
+
+    makeDropdown(
+      dlg.querySelector('#bfTeamInput'), dlg.querySelector('#bfTeamDropdown'),
+      teams, 'id', 'nome', bfTeamIds, bfTeamChipsEl,
+      t => t.cor || '#E8743B'
+    )
+    makeDropdown(
+      dlg.querySelector('#bfUserInput'), dlg.querySelector('#bfUserDropdown'),
+      users, 'id', 'nome', bfUserIds, bfUserChipsEl,
+      () => '#6366f1'
+    )
+    document.addEventListener('click', e => {
+      if (!dlg.querySelector('#bfTeamPicker')?.contains(e.target)) dlg.querySelector('#bfTeamDropdown').hidden = true
+      if (!dlg.querySelector('#bfUserPicker')?.contains(e.target)) dlg.querySelector('#bfUserDropdown').hidden = true
+    }, { once: false })
+
+    function done(val) { dlg.close(); dlg.remove(); resolve(val) }
+
+    dlg.querySelector('#bfDlgOk').addEventListener('click', () => {
+      const titulo = dlg.querySelector('#bfTitulo').value.trim()
+      if (!titulo) { dlg.querySelector('#bfDlgError').textContent = 'O título é obrigatório.'; dlg.querySelector('#bfDlgError').hidden = false; return }
+      if (!bfTeamIds.length) { dlg.querySelector('#bfDlgError').textContent = 'Adicione ao menos uma equipe.'; dlg.querySelector('#bfDlgError').hidden = false; return }
+      const prazoVal = dlg.querySelector('#bfPrazo').value
+      const inicioVal = dlg.querySelector('#bfInicio').value
+      done({
+        confirmed:            true,
+        titulo,
+        descricao:            dlg.querySelector('#bfDescricao').value.trim() || undefined,
+        prioridade:           dlg.querySelector('#bfPrioridade').value,
+        canal:                dlg.querySelector('#bfCanal').value || undefined,
+        tipo_tarefa:          dlg.querySelector('#bfTipo').value.trim() || undefined,
+        solicitante:          dlg.querySelector('#bfSolicitante').value.trim() || undefined,
+        campaign_id:          dlg.querySelector('#bfCampSel').value || undefined,
+        data_inicio_planejado: inicioVal ? new Date(inicioVal).toISOString() : undefined,
+        data_fim_planejado:   prazoVal ? new Date(prazoVal).toISOString() : undefined,
+        team_ids:             bfTeamIds,
+        user_ids:             bfUserIds,
+      })
+    }, { once: true })
+    dlg.querySelector('#bfDlgCancel').addEventListener('click', () => done({ confirmed: false }), { once: true })
+    dlg.querySelector('#bfDlgClose').addEventListener('click',  () => done({ confirmed: false }), { once: true })
+    dlg.addEventListener('cancel', () => resolve({ confirmed: false }), { once: true })
+  })
+}
+
+// Override the old briefingConvertDialog to use the new full form
+// (replaces the original function by name in the closure chain)
+// The original is called from renderBriefings(); we override it here.
+async function briefingConvertDialogFull_handler(bId) {
+  // Ensure teams and users are loaded
+  if (!state.teams.length) {
+    try { state.teams = await api('/teams') } catch {}
+  }
+  if (!state.users.length) {
+    try { state.users = await api('/users') } catch {}
+  }
+  if (!state.campaigns.length) {
+    try { state.campaigns = await api('/campaigns') } catch {}
+  }
+  const briefing = (state._lastBriefings || []).find(b => b.id === bId) || { nome: 'este solicitante' }
+  const result = await briefingConvertDialogFull(briefing)
+  if (!result.confirmed) return
+
+  try {
+    // 1) Create the task with full details (teams, assignees, dates)
+    const taskPayload = {
+      titulo:               result.titulo,
+      descricao:            result.descricao,
+      prioridade:           result.prioridade,
+      canal:                result.canal,
+      tipo_tarefa:          result.tipo_tarefa,
+      solicitante:          result.solicitante,
+      campaign_id:          result.campaign_id,
+      data_inicio_planejado: result.data_inicio_planejado,
+      data_fim_planejado:   result.data_fim_planejado,
+      team_ids:             result.team_ids,
+      user_ids:             result.user_ids || [],
+    }
+    const newTask = await api('/tasks', { method: 'POST', body: JSON.stringify(taskPayload) })
+
+    // 2) Mark briefing as converted, passing the pre-created task_id
+    const bfBody = { status: 'CONVERTIDO', task_id: newTask.id }
+    if (result.campaign_id) bfBody.campaign_id = result.campaign_id
+    await api('/briefing/' + bId, { method: 'PATCH', body: JSON.stringify(bfBody) })
+
+    toast('✓ Tarefa criada — clique para abrir', 'success', () => {
+      navigate('tasks')
+      setTimeout(() => openPanel(newTask.id), 300)
+    })
+    loadTasks()
+    loadBriefings()
+  } catch (err) { toast(err.message, 'error') }
+}
+
+// renderBriefings já foi atualizado diretamente acima para usar briefingConvertDialogFull_handler.
+
+/* ══════════════════════════════════════════════════════════════════
+   ── COMMAND PALETTE (Ctrl + K) ──────────────────────────────────
+   ══════════════════════════════════════════════════════════════════ */
+let _cmdSelectedIdx = -1
+
+const CMD_ACTIONS = [
+  { icon: '➕', title: 'Nova tarefa',      sub: 'Criar uma nova tarefa',           kbd: 'N', action: () => { $('#cmdPaletteDialog').close(); $('#newTaskBtn')?.click() } },
+  { icon: '📊', title: 'Dashboard',         sub: 'Ir para o Dashboard',              kbd: '1', action: () => { $('#cmdPaletteDialog').close(); navigate('dashboard') } },
+  { icon: '✅', title: 'Tarefas',           sub: 'Ver o quadro Kanban',              kbd: '2', action: () => { $('#cmdPaletteDialog').close(); navigate('tasks') } },
+  { icon: '📣', title: 'Campanhas',         sub: 'Gerenciar campanhas',              kbd: '3', action: () => { $('#cmdPaletteDialog').close(); navigate('campaigns') } },
+  { icon: '📅', title: 'Calendário',        sub: 'Ver o calendário de eventos',      kbd: '4', action: () => { $('#cmdPaletteDialog').close(); navigate('calendar') } },
+  { icon: '🗺️', title: 'Mapa',             sub: 'Mapa de eventos',                  kbd: '5', action: () => { $('#cmdPaletteDialog').close(); navigate('mapa') } },
+  { icon: '🌙', title: 'Alternar tema',     sub: 'Claro / Escuro',                   kbd: '',  action: () => { $('#cmdPaletteDialog').close(); toggleTheme() } },
+]
+
+function openCmdPalette() {
+  const dlg = $('#cmdPaletteDialog')
+  if (!dlg) return
+  const inp = $('#cmdInput')
+  inp.value = ''
+  _cmdSelectedIdx = -1
+  renderCmdResults('')
+  dlg.showModal()
+  requestAnimationFrame(() => inp.focus())
+}
+
+function renderCmdResults(q) {
+  const res = $('#cmdResults')
+  if (!res) return
+  const ql = q.toLowerCase()
+
+  // Filter actions
+  const actions = CMD_ACTIONS.filter(a => !ql || a.title.toLowerCase().includes(ql) || a.sub.toLowerCase().includes(ql))
+
+  // Filter tasks
+  const tasks = !ql ? [] : (state.allTasks || [])
+    .filter(t => t.titulo?.toLowerCase().includes(ql) || (t.descricao || '').toLowerCase().includes(ql))
+    .slice(0, 6)
+
+  if (!actions.length && !tasks.length) {
+    res.innerHTML = '<div class="cmd-empty">Nenhum resultado para "<strong>' + escapeHtml(q) + '</strong>".</div>'
+    return
+  }
+
+  let html = ''
+  if (actions.length) {
+    html += `<div class="cmd-section-label">Ações</div>`
+    html += actions.map((a, i) =>
+      `<div class="cmd-item" data-cmd-idx="${i}" role="option">
+        <div class="cmd-item-icon">${a.icon}</div>
+        <div class="cmd-item-text">
+          <div class="cmd-item-title">${escapeHtml(a.title)}</div>
+          <div class="cmd-item-sub">${escapeHtml(a.sub)}</div>
+        </div>
+        ${a.kbd ? `<kbd class="cmd-item-kbd">${a.kbd}</kbd>` : ''}
+      </div>`
+    ).join('')
+  }
+  if (tasks.length) {
+    html += `<div class="cmd-section-label">Tarefas</div>`
+    html += tasks.map((t, i) => {
+      const sty = STATUS_STYLE[t.status] || {}
+      return `<div class="cmd-item" data-task-id="${t.id}" role="option">
+        <div class="cmd-item-icon" style="background:${sty.bg||'var(--surface-3)'};color:${sty.color||'var(--text)'}">✓</div>
+        <div class="cmd-item-text">
+          <div class="cmd-item-title">${escapeHtml(t.titulo)}</div>
+          <div class="cmd-item-sub">${STATUS_LABELS[t.status] || t.status}${t.data_fim_planejado ? ' · ' + new Date(t.data_fim_planejado).toLocaleDateString('pt-BR') : ''}</div>
+        </div>
+      </div>`
+    }).join('')
+  }
+  res.innerHTML = html
+
+  _cmdSelectedIdx = -1
+  $$('.cmd-item', res).forEach(el => {
+    el.addEventListener('click', () => execCmdItem(el, actions))
+    el.addEventListener('mouseenter', () => {
+      $$('.cmd-item', res).forEach(x => x.classList.remove('selected'))
+      el.classList.add('selected')
+      _cmdSelectedIdx = Array.from(res.querySelectorAll('.cmd-item')).indexOf(el)
+    })
+  })
+}
+
+function execCmdItem(el, actions) {
+  if (el.dataset.cmdIdx !== undefined) {
+    actions[+el.dataset.cmdIdx]?.action()
+  } else if (el.dataset.taskId) {
+    $('#cmdPaletteDialog').close()
+    navigate('tasks')
+    setTimeout(() => openPanel(el.dataset.taskId), 200)
+  }
+}
+
+$('#cmdInput')?.addEventListener('input', e => renderCmdResults(e.target.value))
+$('#cmdInput')?.addEventListener('keydown', e => {
+  const res   = $('#cmdResults')
+  const items = $$('.cmd-item', res)
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    _cmdSelectedIdx = Math.min(_cmdSelectedIdx + 1, items.length - 1)
+    items.forEach((x, i) => x.classList.toggle('selected', i === _cmdSelectedIdx))
+    items[_cmdSelectedIdx]?.scrollIntoView({ block: 'nearest' })
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    _cmdSelectedIdx = Math.max(_cmdSelectedIdx - 1, 0)
+    items.forEach((x, i) => x.classList.toggle('selected', i === _cmdSelectedIdx))
+    items[_cmdSelectedIdx]?.scrollIntoView({ block: 'nearest' })
+  } else if (e.key === 'Enter') {
+    const sel = items[_cmdSelectedIdx] || items[0]
+    if (sel) execCmdItem(sel, CMD_ACTIONS.filter(a => !$('#cmdInput').value || a.title.toLowerCase().includes($('#cmdInput').value.toLowerCase())))
+  } else if (e.key === 'Escape') {
+    $('#cmdPaletteDialog').close()
+  }
+})
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', e => {
+  // Skip when inside input/textarea
+  const tag = document.activeElement?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) {
+    // Only Ctrl+K works in input context (it's a shortcut that overrides)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openCmdPalette() }
+    return
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openCmdPalette(); return }
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && isAdmin()) { e.preventDefault(); $('#newTaskBtn')?.click(); return }
+  if (e.key === 'Escape') {
+    if (!$('#cmdPaletteDialog')?.open) return
+    $('#cmdPaletteDialog').close()
+  }
+})
+
+/* ══════════════════════════════════════════════════════════════════
+   ── MOBILE BOTTOM NAV ───────────────────────────────────────────
+   ══════════════════════════════════════════════════════════════════ */
+function initMobileBottomNav() {
+  const nav = $('#mobileBottomNav')
+  if (!nav) return
+  nav.hidden = false
+
+  $$('.mbn-item[data-view]', nav).forEach(btn =>
+    btn.addEventListener('click', () => navigate(btn.dataset.view))
+  )
+  $('#mbnNewTask')?.addEventListener('click', () => { if (isAdmin()) $('#newTaskBtn')?.click() })
+  $('#mbnNotif')?.addEventListener('click', () => {
+    const dd = $('#notifDropdown')
+    if (dd) { dd.hidden = !dd.hidden; if (!dd.hidden) loadNotifications() }
+  })
+}
+
+// navigate já foi atualizado diretamente acima para sincronizar o mobile bottom nav.
+
+// Sync mobile notif badge with sidebar badge
+const _notifBadgeObs = new MutationObserver(() => {
+  const badge = $('#notifBadge')
+  const mbnBadge = $('#mbnNotifBadge')
+  if (!badge || !mbnBadge) return
+  mbnBadge.hidden = badge.hidden
+  mbnBadge.textContent = badge.textContent
+})
+if ($('#notifBadge')) _notifBadgeObs.observe($('#notifBadge'), { childList: true, characterData: true, subtree: true, attributes: true })
+
 /* ── Init ──────────────────────────────────────────────────────── */
 if (state.token && state.user) showApp()
 else showLogin()
+
+// Post-init: mobile nav
+document.addEventListener('DOMContentLoaded', () => {}, { once: true })
+if (document.readyState !== 'loading') initMobileBottomNav()
+else document.addEventListener('DOMContentLoaded', initMobileBottomNav, { once: true })
