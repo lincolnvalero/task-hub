@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/styles.css?v=20260529e" />
+  <link rel="stylesheet" href="/styles.css?v=20260529f" />
 </head>
 <body>
 
@@ -70,6 +70,10 @@
         <button class="nav-item" data-view="tasks" data-tip="Tarefas">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
           <span>Tarefas</span>
+        </button>
+        <button class="nav-item" data-view="postagens" data-tip="Postagens">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <span>Postagens</span>
         </button>
         <button class="nav-item" data-view="campaigns" data-tip="Campanhas">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6"/></svg>
@@ -434,6 +438,87 @@
             </div>
 
             <div id="meetingTaskList" class="meeting-task-list"></div>
+          </div>
+        </section>
+
+        <!-- AGENDA DE POSTAGENS -->
+        <section id="postagensView" class="view" hidden>
+          <div class="section-header">
+            <h2>Agenda de Postagens</h2>
+            <div class="header-right-group">
+              <button id="postagensViewWeekBtn" class="view-toggle-btn active" title="Visão semanal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </button>
+              <button id="postagensViewListBtn" class="view-toggle-btn" title="Visão em lista">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filtro de plataformas -->
+          <div class="post-platform-bar" id="postPlatformBar">
+            <button class="post-plat-chip active" data-canal="">
+              <span class="ppb-dot" style="background:var(--text-muted)"></span>Todos
+            </button>
+            <button class="post-plat-chip" data-canal="INSTAGRAM">
+              <span class="ppb-dot" style="background:#E1306C"></span>Instagram
+            </button>
+            <button class="post-plat-chip" data-canal="YOUTUBE">
+              <span class="ppb-dot" style="background:#FF4444"></span>YouTube
+            </button>
+            <button class="post-plat-chip" data-canal="TIKTOK">
+              <span class="ppb-dot" style="background:#69C9D0"></span>TikTok
+            </button>
+            <button class="post-plat-chip" data-canal="LINKEDIN">
+              <span class="ppb-dot" style="background:#0077B5"></span>LinkedIn
+            </button>
+            <button class="post-plat-chip" data-canal="WHATSAPP">
+              <span class="ppb-dot" style="background:#25D366"></span>WhatsApp
+            </button>
+            <button class="post-plat-chip" data-canal="SITE">
+              <span class="ppb-dot" style="background:#6366f1"></span>Site
+            </button>
+            <button class="post-plat-chip" data-canal="EMAIL">
+              <span class="ppb-dot" style="background:#f59e0b"></span>E-mail
+            </button>
+            <button class="post-plat-chip" data-canal="EVENTO">
+              <span class="ppb-dot" style="background:#a78bfa"></span>Evento
+            </button>
+          </div>
+
+          <!-- Filtros secundários + navegação de semana -->
+          <div class="post-filter-bar">
+            <select id="postStatusFilter" class="filter-select">
+              <option value="">Todos os status</option>
+              <option value="A_FAZER">A fazer</option>
+              <option value="EM_ANDAMENTO">Em andamento</option>
+              <option value="REVISAO">Revisão</option>
+              <option value="CONCLUIDO">Publicado ✓</option>
+            </select>
+            <select id="postCampaignFilter" class="filter-select">
+              <option value="">Todas as campanhas</option>
+            </select>
+            <select id="postUserFilter" class="filter-select">
+              <option value="">Todos os responsáveis</option>
+            </select>
+            <div class="post-week-nav">
+              <button id="postPrevWeek" class="icon-btn" title="Semana anterior">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span id="postWeekLabel" class="post-week-label"></span>
+              <button id="postNextWeek" class="icon-btn" title="Próxima semana">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+              <button id="postTodayBtn" class="btn-ghost btn-sm">Hoje</button>
+            </div>
+          </div>
+
+          <!-- Grade semanal -->
+          <div id="postagensWeekGrid" class="post-week-grid"></div>
+
+          <!-- Lista (alternativa) -->
+          <div id="postagensListWrap" hidden>
+            <div id="postagensListContent" class="post-list-content"></div>
           </div>
         </section>
 
@@ -1153,6 +1238,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260529e"></script>
+  <script src="/app.js?v=20260529f"></script>
 </body>
 </html>

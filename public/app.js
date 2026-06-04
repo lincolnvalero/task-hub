@@ -270,8 +270,9 @@ function navigate(view) {
   if (view === 'briefings') loadBriefings()
   if (view === 'campaigns') loadCampaigns()
   if (view === 'calendar')  loadCalendar()
-  if (view === 'agenda')    loadAgenda()
-  if (view === 'reunioes')  loadReunioes()
+  if (view === 'agenda')     loadAgenda()
+  if (view === 'postagens')  loadPostagens()
+  if (view === 'reunioes')   loadReunioes()
 }
 
 /* ── Auth events ───────────────────────────────────────────────── */
@@ -3792,6 +3793,278 @@ const _notifBadgeObs = new MutationObserver(() => {
   mbnBadge.textContent = badge.textContent
 })
 if ($('#notifBadge')) _notifBadgeObs.observe($('#notifBadge'), { childList: true, characterData: true, subtree: true, attributes: true })
+
+/* ══════════════════════════════════════════════════════════════════
+   ── AGENDA DE POSTAGENS (Content Calendar) ──────────────────────
+   View dedicada para planejar quando cada conteúdo vai ao ar.
+   Orientada por: canal, data_fim_planejado, hora_publicacao.
+   Completamente independente da Agenda de Eventos.
+   ══════════════════════════════════════════════════════════════════ */
+
+// Filtros e estado da view
+const posState = {
+  canal:       '',    // filtro de plataforma
+  status:      '',    // filtro de status
+  campaignId:  '',    // filtro de campanha
+  userId:      '',    // filtro de responsável
+  weekRef:     null,  // segunda-feira da semana exibida (Date)
+  listView:    false, // true = lista, false = semana
+}
+
+// Dia-da-semana abreviados (começando na segunda)
+const POST_WEEKDAYS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM']
+
+/** Retorna a segunda-feira da semana que contém `d` */
+function weekMonday(d) {
+  const copy = new Date(d); copy.setHours(0,0,0,0)
+  const dow = copy.getDay() // 0=dom … 6=sáb
+  const diff = (dow === 0) ? -6 : 1 - dow
+  copy.setDate(copy.getDate() + diff)
+  return copy
+}
+
+async function loadPostagens() {
+  // Carrega tarefas se ainda não carregadas
+  if (!state.allTasks.length) {
+    try {
+      const board = await api('/tasks/kanban')
+      state.allTasks = board ? Object.values(board).flat() : []
+    } catch (err) { toast(err.message, 'error') }
+  }
+  // Carrega campaigns para o filtro
+  if (!state.campaigns.length) {
+    try { state.campaigns = await api('/campaigns') } catch {}
+  }
+  // Carrega users para filtro de responsável
+  if (!state.users.length) {
+    try { state.users = await api('/users') } catch {}
+  }
+
+  // Inicializa semana na semana atual
+  if (!posState.weekRef) posState.weekRef = weekMonday(new Date())
+
+  // Popula filtros
+  populateCampaignSelect('#postCampaignFilter', posState.campaignId)
+  const uf = $('#postUserFilter')
+  if (uf && uf.options.length <= 1) {
+    ;(state.users || []).forEach(u => {
+      const opt = document.createElement('option')
+      opt.value = u.id; opt.textContent = u.nome
+      uf.appendChild(opt)
+    })
+  }
+
+  renderPostagens()
+}
+
+function getPostTasks() {
+  // Apenas tarefas com canal E data de publicação definidos
+  let tasks = (state.allTasks || []).filter(t => t.canal && t.data_fim_planejado)
+
+  if (posState.canal)      tasks = tasks.filter(t => t.canal === posState.canal)
+  if (posState.status)     tasks = tasks.filter(t => t.status === posState.status)
+  if (posState.campaignId) tasks = tasks.filter(t => t.campaign_id === posState.campaignId)
+  if (posState.userId)     tasks = tasks.filter(t => (t.assignments||[]).some(a => a.user_id === posState.userId))
+
+  return tasks
+}
+
+function renderPostagens() {
+  posState.listView ? renderPostList() : renderPostWeek()
+}
+
+/* ── Grade Semanal ─────────────────────────────────────────────── */
+function renderPostWeek() {
+  const grid = $('#postagensWeekGrid')
+  if (!grid) return
+  grid.hidden = false
+  if ($('#postagensListWrap')) $('#postagensListWrap').hidden = true
+
+  const monday = posState.weekRef
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6)
+  const today  = new Date(); today.setHours(0,0,0,0)
+
+  // Label da semana
+  const fmt = d => d.toLocaleDateString('pt-BR', { day:'2-digit', month:'short' })
+  const lbl = monday.getFullYear() === sunday.getFullYear()
+    ? `${fmt(monday)} – ${fmt(sunday)} ${monday.getFullYear()}`
+    : `${fmt(monday)} ${monday.getFullYear()} – ${fmt(sunday)} ${sunday.getFullYear()}`
+  const weekLbl = $('#postWeekLabel'); if (weekLbl) weekLbl.textContent = lbl
+
+  const tasks = getPostTasks()
+
+  // Agrupa por dia (YYYY-MM-DD)
+  const byDay = {}
+  tasks.forEach(t => {
+    const key = t.data_fim_planejado.slice(0, 10)
+    ;(byDay[key] ??= []).push(t)
+  })
+
+  // Monta os 7 dias
+  grid.innerHTML = POST_WEEKDAYS.map((dayName, i) => {
+    const d = new Date(monday); d.setDate(monday.getDate() + i)
+    const key = d.toISOString().slice(0, 10)
+    const isToday = d.getTime() === today.getTime()
+    const isPast  = d < today
+    const dayTasks = (byDay[key] || []).sort((a, b) => (a.hora_publicacao || '00:00') < (b.hora_publicacao || '00:00') ? -1 : 1)
+
+    return `<div class="post-day-col${isToday?' today':''}${isPast&&!isToday?' past':''}">
+      <div class="post-day-header">
+        <span class="post-day-name">${dayName}</span>
+        <span class="post-day-date">${d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</span>
+        ${dayTasks.length ? `<span class="post-day-count">${dayTasks.length}</span>` : ''}
+      </div>
+      <div class="post-day-tasks">
+        ${dayTasks.map(t => renderPostCard(t, 'compact')).join('')}
+        ${!dayTasks.length ? `<div class="post-day-empty">—</div>` : ''}
+      </div>
+    </div>`
+  }).join('')
+
+  // Clique nos cards → abre painel da tarefa
+  $$('[data-post-task]', grid).forEach(el =>
+    el.addEventListener('click', () => { navigate('tasks'); setTimeout(() => openPanel(el.dataset.postTask), 150) })
+  )
+}
+
+/* ── Lista agrupada por data ───────────────────────────────────── */
+function renderPostList() {
+  const wrap = $('#postagensListWrap')
+  const cont = $('#postagensListContent')
+  if (!wrap || !cont) return
+  if ($('#postagensWeekGrid')) $('#postagensWeekGrid').hidden = true
+  wrap.hidden = false
+
+  const today = new Date(); today.setHours(0,0,0,0)
+  const tasks = getPostTasks().sort((a,b) =>
+    (a.data_fim_planejado + (a.hora_publicacao||'00:00')) < (b.data_fim_planejado + (b.hora_publicacao||'00:00')) ? -1 : 1
+  )
+
+  if (!tasks.length) {
+    cont.innerHTML = '<div class="post-empty">Nenhuma postagem agendada com os filtros selecionados.</div>'
+    return
+  }
+
+  // Atualiza label de semana (irrelevante na lista, mas deixa vazio)
+  const weekLbl = $('#postWeekLabel'); if (weekLbl) weekLbl.textContent = 'Lista completa'
+
+  // Agrupa por data
+  const groups = {}
+  tasks.forEach(t => {
+    const key = t.data_fim_planejado.slice(0, 10)
+    ;(groups[key] ??= []).push(t)
+  })
+
+  cont.innerHTML = Object.entries(groups).map(([dateKey, dayTasks]) => {
+    const d = new Date(dateKey + 'T00:00:00')
+    const isToday = d.getTime() === today.getTime()
+    const isPast  = d < today
+    const label = isToday ? '📅 Hoje' : d.toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long' })
+    return `<div class="post-list-group${isToday?' today':''}${isPast&&!isToday?' past':''}">
+      <div class="post-list-date">${label}</div>
+      <div class="post-list-cards">${dayTasks.map(t => renderPostCard(t, 'full')).join('')}</div>
+    </div>`
+  }).join('')
+
+  $$('[data-post-task]', cont).forEach(el =>
+    el.addEventListener('click', () => { navigate('tasks'); setTimeout(() => openPanel(el.dataset.postTask), 150) })
+  )
+}
+
+/* ── Card de postagem ──────────────────────────────────────────── */
+function renderPostCard(t, mode = 'compact') {
+  const color  = CANAL_COLORS[t.canal] || '#6b7280'
+  const label  = CANAL_LABELS[t.canal]  || t.canal
+  const sty    = STATUS_STYLE[t.status] || {}
+  const stLabel = STATUS_LABELS[t.status] || t.status
+  const hora   = t.hora_publicacao || ''
+  const today  = new Date(); today.setHours(0,0,0,0)
+  const pubDate = t.data_fim_planejado ? new Date(t.data_fim_planejado + 'T00:00:00') : null
+  const overdue = pubDate && pubDate < today && t.status !== 'CONCLUIDO'
+  const done    = t.status === 'CONCLUIDO'
+
+  // Assignee avatars (max 2)
+  const assignees = (t.assignments || [])
+    .filter(a => a.user_id)
+    .map(a => { const u = (state.users||[]).find(u => u.id === a.user_id); return u ? u.nome : null })
+    .filter(Boolean).slice(0, 2)
+
+  if (mode === 'compact') {
+    return `<div class="post-card-compact${done?' done':''}${overdue?' overdue':''}" data-post-task="${t.id}"
+        style="--canal-color:${color}" title="${escapeHtml(t.titulo)}">
+      <div class="pcc-accent" style="background:${color}"></div>
+      <div class="pcc-body">
+        <div class="pcc-canal">${escapeHtml(label)}${hora ? ` · ${hora}` : ''}</div>
+        <div class="pcc-title">${escapeHtml(t.titulo)}</div>
+        <div class="pcc-footer">
+          <span class="pcc-status" style="background:${sty.bg};color:${sty.color}">${stLabel}</span>
+          ${assignees.map(n => `<span class="pcc-avatar" style="background:${getAvatarColor(n)}" title="${escapeHtml(n)}">${getInitials(n)}</span>`).join('')}
+        </div>
+      </div>
+    </div>`
+  }
+
+  // Full card for list view
+  return `<div class="post-card-full${done?' done':''}${overdue?' overdue':''}" data-post-task="${t.id}"
+      style="--canal-color:${color}">
+    <div class="pcf-accent" style="background:${color}"></div>
+    <div class="pcf-body">
+      <div class="pcf-header">
+        <span class="canal-badge" style="--canal-color:${color};--canal-bg:${color}22">${escapeHtml(label)}</span>
+        ${hora ? `<span class="pcf-hora">🕐 ${hora}</span>` : ''}
+        <span class="status-badge sb-${t.status}" style="background:${sty.bg};color:${sty.color};margin-left:auto">${stLabel}</span>
+      </div>
+      <div class="pcf-title">${escapeHtml(t.titulo)}</div>
+      ${t.campaign_id ? (() => { const c = (state.campaigns||[]).find(x=>x.id===t.campaign_id); return c ? `<div class="pcf-campaign">📣 ${escapeHtml(c.nome)}</div>` : '' })() : ''}
+      <div class="pcf-footer">
+        <div class="pcf-avatars">
+          ${assignees.map(n => `<span class="pcc-avatar" style="background:${getAvatarColor(n)}" title="${escapeHtml(n)}">${getInitials(n)}</span>`).join('')}
+          ${assignees.length ? `<span class="pcf-assignee-names">${assignees.join(', ')}</span>` : '<span style="color:var(--text-dim);font-size:.72rem">Sem responsável</span>'}
+        </div>
+        ${overdue ? `<span class="pcf-overdue-badge">⚠ Atrasada</span>` : ''}
+      </div>
+    </div>
+  </div>`
+}
+
+/* ── Eventos de filtro / navegação ─────────────────────────────── */
+$$('.post-plat-chip').forEach(chip =>
+  chip.addEventListener('click', () => {
+    $$('.post-plat-chip').forEach(c => c.classList.remove('active'))
+    chip.classList.add('active')
+    posState.canal = chip.dataset.canal
+    renderPostagens()
+  })
+)
+$('#postStatusFilter')?.addEventListener('change',   e => { posState.status     = e.target.value; renderPostagens() })
+$('#postCampaignFilter')?.addEventListener('change', e => { posState.campaignId = e.target.value; renderPostagens() })
+$('#postUserFilter')?.addEventListener('change',     e => { posState.userId     = e.target.value; renderPostagens() })
+
+$('#postPrevWeek')?.addEventListener('click', () => {
+  posState.weekRef = new Date(posState.weekRef); posState.weekRef.setDate(posState.weekRef.getDate() - 7)
+  renderPostagens()
+})
+$('#postNextWeek')?.addEventListener('click', () => {
+  posState.weekRef = new Date(posState.weekRef); posState.weekRef.setDate(posState.weekRef.getDate() + 7)
+  renderPostagens()
+})
+$('#postTodayBtn')?.addEventListener('click', () => {
+  posState.weekRef = weekMonday(new Date()); renderPostagens()
+})
+
+// Troca de modo: semana ↔ lista
+$('#postagensViewWeekBtn')?.addEventListener('click', () => {
+  posState.listView = false
+  $('#postagensViewWeekBtn')?.classList.add('active')
+  $('#postagensViewListBtn')?.classList.remove('active')
+  renderPostagens()
+})
+$('#postagensViewListBtn')?.addEventListener('click', () => {
+  posState.listView = true
+  $('#postagensViewListBtn')?.classList.add('active')
+  $('#postagensViewWeekBtn')?.classList.remove('active')
+  renderPostagens()
+})
 
 /* ══════════════════════════════════════════════════════════════════
    ── ENVIAR ATA DE REUNIÃO ────────────────────────────────────────
