@@ -2370,3 +2370,117 @@ dialog select[multiple] { min-height: 100px; }
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ── TIPO TRANSMISSÃO BADGES ─────────────────────────── */
+.eop-transmissao-badge,
+.agenda-tx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: .68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid;
+}
+.eop-transmissao-badge.eop-tx-GRAVACAO,
+.agenda-tx-badge.agenda-tx-GRAVACAO   { background: rgba(99,102,241,.12); color: #6366f1; border-color: rgba(99,102,241,.25); }
+.eop-transmissao-badge.eop-tx-AO_VIVO,
+.agenda-tx-badge.agenda-tx-AO_VIVO   { background: rgba(239,68,68,.1); color: #ef4444; border-color: rgba(239,68,68,.25); }
+.eop-transmissao-badge.eop-tx-AMBOS,
+.agenda-tx-badge.agenda-tx-AMBOS     { background: rgba(234,179,8,.1); color: #ca8a04; border-color: rgba(234,179,8,.25); }
+
+/* ── EVENT COVER ART ─────────────────────────────────── */
+/* Cover thumbnail in EOP panel header */
+.eop-cover-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius);
+  background-size: cover;
+  background-position: center;
+  background-color: var(--surface-2);
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+/* Cover image in agenda card (replaces color band) */
+.agenda-event-cover {
+  width: 80px;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--surface-2);
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+@media (max-width: 480px) {
+  .agenda-event-cover { width: 56px; }
+}
+/* Cover upload zone in event dialog */
+.ev-cover-section { margin-top: 12px; }
+.ev-cover-label { font-size: .82rem; color: var(--text-muted); font-weight: 500; display: flex; flex-direction: column; gap: 6px; }
+.ev-cover-dropzone {
+  position: relative;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color .15s, background .15s;
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ev-cover-dropzone:hover, .ev-cover-dropzone.drag-over { border-color: var(--primary); background: var(--primary-dim); }
+.ev-cover-preview {
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: calc(var(--radius) - 2px);
+  display: block;
+}
+.ev-cover-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: .78rem;
+  padding: 16px;
+}
+.ev-cover-upload-status {
+  font-size: .75rem;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  margin-top: 4px;
+}
+.ev-cover-upload-status.info    { background: rgba(99,102,241,.1); color: #6366f1; }
+.ev-cover-upload-status.success { background: rgba(34,197,94,.1); color: var(--success); }
+
+/* ── ATA RECIPIENTS PICKER ───────────────────────────── */
+.ata-recipient-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-size: .8rem;
+  font-weight: 500;
+  transition: border-color .15s, background .15s;
+}
+.ata-recipient-chip:hover { border-color: var(--primary); background: var(--primary-dim); }
+.ata-recipient-chip input { display: none; }
+.ata-recipient-chip:has(input:checked) { border-color: var(--primary); background: var(--primary-dim); color: var(--primary); }
+.ata-recip-avatar {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: .62rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

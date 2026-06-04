@@ -4,19 +4,21 @@ import { randomUUID } from 'node:crypto'
 import { supabase } from '../../database/supabase'
 import { requireAuth, requireAdmin } from '../middlewares/auth.middleware'
 
-const EVENT_SELECT = 'id, titulo, descricao, data, hora, local, lat, lng, cor, campaign_id, calendar_source, created_at'
+const EVENT_SELECT = 'id, titulo, descricao, data, hora, local, lat, lng, cor, campaign_id, calendar_source, tipo_transmissao, cover_url, created_at'
 
 const createEventSchema = z.object({
-  titulo:           z.string().min(1).max(200),
-  descricao:        z.string().max(2000).optional(),
-  data:             z.string().min(8), // YYYY-MM-DD
-  hora:             z.string().max(5).optional(),
-  local:            z.string().max(300).optional(),
-  lat:              z.coerce.number().optional(),
-  lng:              z.coerce.number().optional(),
-  cor:              z.string().max(20).optional(),
-  campaign_id:      z.string().min(1).optional(),
-  calendar_source:  z.enum(['COMUNICACAO', 'CONVENCAO', 'GERAL']).default('COMUNICACAO').optional(),
+  titulo:            z.string().min(1).max(200),
+  descricao:         z.string().max(2000).optional(),
+  data:              z.string().min(8), // YYYY-MM-DD
+  hora:              z.string().max(5).optional(),
+  local:             z.string().max(300).optional(),
+  lat:               z.coerce.number().optional(),
+  lng:               z.coerce.number().optional(),
+  cor:               z.string().max(20).optional(),
+  campaign_id:       z.string().min(1).optional(),
+  calendar_source:   z.enum(['COMUNICACAO', 'CONVENCAO', 'GERAL']).default('COMUNICACAO').optional(),
+  tipo_transmissao:  z.enum(['GRAVACAO', 'AO_VIVO', 'AMBOS']).optional().nullable(),
+  cover_url:         z.string().url().max(2000).optional().nullable(),
 })
 const updateEventSchema = createEventSchema.partial()
 
@@ -48,8 +50,10 @@ export async function eventsRoutes(app: FastifyInstance) {
         lat:              body.data.lat ?? null,
         lng:              body.data.lng ?? null,
         cor:              body.data.cor ?? null,
-        campaign_id:      body.data.campaign_id ?? null,
-        calendar_source:  body.data.calendar_source ?? 'COMUNICACAO',
+        campaign_id:       body.data.campaign_id ?? null,
+        calendar_source:   body.data.calendar_source ?? 'COMUNICACAO',
+        tipo_transmissao:  body.data.tipo_transmissao ?? null,
+        cover_url:         body.data.cover_url ?? null,
       })
       .select(EVENT_SELECT)
       .single()
@@ -62,7 +66,7 @@ export async function eventsRoutes(app: FastifyInstance) {
     const body = updateEventSchema.safeParse(request.body)
     if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
     const payload: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    for (const k of ['titulo','descricao','data','hora','local','lat','lng','cor','campaign_id','calendar_source'] as const) {
+    for (const k of ['titulo','descricao','data','hora','local','lat','lng','cor','campaign_id','calendar_source','tipo_transmissao','cover_url'] as const) {
       if (body.data[k] !== undefined) payload[k] = body.data[k]
     }
     const { data, error } = await supabase

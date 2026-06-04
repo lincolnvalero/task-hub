@@ -18,6 +18,7 @@ import { notificationsRoutes } from './infra/http/controllers/notifications.cont
 import { eventsRoutes } from './infra/http/controllers/events.controller'
 import { eventChecklistRoutes } from './infra/http/controllers/event-checklist.controller'
 import { meetingAIRoutes } from './infra/http/controllers/meeting-ai.controller'
+import { eventCoverRoutes } from './infra/http/controllers/event-cover.controller'
 
 export const app = Fastify({ logger: true, pluginTimeout: 30000 })
 
@@ -62,6 +63,7 @@ export async function setupApp() {
   await app.register(eventsRoutes)
   await app.register(eventChecklistRoutes)
   await app.register(meetingAIRoutes)
+  await app.register(eventCoverRoutes)
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
 

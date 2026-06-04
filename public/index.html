@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/styles.css?v=20260529d" />
+  <link rel="stylesheet" href="/styles.css?v=20260529e" />
 </head>
 <body>
 
@@ -422,6 +422,7 @@
             <div class="section-header" style="margin-bottom:16px">
               <h3>Tarefas identificadas <span id="meetingTaskCount" class="count-badge">0</span></h3>
               <div class="header-right-group">
+                <button id="sendAtaBtn" class="btn-outline btn-sm">📄 Enviar ata</button>
                 <button id="selectAllMeetingTasks" class="btn-ghost btn-sm">Selecionar todas</button>
                 <button id="createSelectedTasksBtn" class="btn-primary">✓ Criar tarefas selecionadas</button>
               </div>
@@ -470,6 +471,7 @@
     <aside class="event-op-panel" id="eventOpPanel">
       <div class="eop-header">
         <div class="eop-header-left">
+          <div id="eopCoverThumb" class="eop-cover-thumb" hidden></div>
           <div id="eopColorDot" class="eop-color-dot"></div>
           <div>
             <h2 id="eopTitle" class="eop-title"></h2>
@@ -1037,13 +1039,36 @@
       <label>Campanha
         <select id="evCampaign"><option value="">— Nenhuma —</option></select>
       </label>
-      <label>Fonte do calendário
-        <select id="evCalSource">
-          <option value="COMUNICACAO">Comunicação</option>
-          <option value="CONVENCAO">Convenção Regional</option>
-          <option value="GERAL">Geral</option>
-        </select>
-      </label>
+      <div class="grid-2">
+        <label>Fonte do calendário
+          <select id="evCalSource">
+            <option value="COMUNICACAO">📣 Comunicação</option>
+            <option value="CONVENCAO">🏛️ Convenção Regional</option>
+            <option value="GERAL">🌍 Geral</option>
+          </select>
+        </label>
+        <label>Transmissão
+          <select id="evTipoTransmissao">
+            <option value="">— Não especificado —</option>
+            <option value="GRAVACAO">🎬 Apenas gravação</option>
+            <option value="AO_VIVO">📡 Ao vivo (live)</option>
+            <option value="AMBOS">🎬📡 Gravação + Live</option>
+          </select>
+        </label>
+      </div>
+      <div class="ev-cover-section admin-only">
+        <label class="ev-cover-label">Capa do evento
+          <div class="ev-cover-dropzone" id="evCoverDropzone" title="Clique ou arraste uma imagem">
+            <img id="evCoverPreview" class="ev-cover-preview" src="" alt="" hidden />
+            <div id="evCoverPlaceholder" class="ev-cover-placeholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span>Clique ou arraste uma imagem (máx. 2 MB)</span>
+            </div>
+          </div>
+          <input type="file" id="evCoverFile" accept="image/jpeg,image/png,image/webp" hidden />
+        </label>
+        <div id="evCoverUploadStatus" class="ev-cover-upload-status" hidden></div>
+      </div>
       <p id="eventFormError" class="form-error" hidden></p>
       <div class="dialog-actions">
         <button type="button" id="evDeleteBtn" class="btn-danger-ghost" hidden>Excluir</button>
@@ -1128,6 +1153,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260529d"></script>
+  <script src="/app.js?v=20260529e"></script>
 </body>
 </html>

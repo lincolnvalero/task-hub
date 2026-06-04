@@ -7,7 +7,8 @@ const envSchema = z.object({
   PORT:               z.coerce.number().default(3333),
   NODE_ENV:           z.enum(['development', 'test', 'production']).default('development'),
   ALLOWED_ORIGINS:    z.string().default('http://localhost:3000'),
-  ANTHROPIC_API_KEY:  z.string().optional(),
+  ANTHROPIC_API_KEY:       z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)

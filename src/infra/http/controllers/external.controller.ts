@@ -40,6 +40,7 @@ const briefingSchema = z.object({
   canal:              z.string().max(50).optional(),
   descricao:          z.string().min(10).max(3000),
   data_evento:        z.coerce.date().optional(),
+  tipo_transmissao:   z.enum(['GRAVACAO', 'AO_VIVO', 'AMBOS']).optional(),
   consentimento_lgpd: z.literal(true, {
     error: 'É necessário aceitar a política de dados para enviar o briefing.',
   }),
@@ -171,10 +172,11 @@ export async function externalRoutes(app: FastifyInstance) {
         nome:        body.data.nome,
         email:       body.data.email,
         tipo:        body.data.tipo,
-        canal:       body.data.canal ?? null,
-        descricao:   body.data.descricao,
-        data_evento: body.data.data_evento?.toISOString().slice(0, 10) ?? null,
-        status:      'PENDENTE',
+        canal:             body.data.canal ?? null,
+        descricao:         body.data.descricao,
+        data_evento:       body.data.data_evento?.toISOString().slice(0, 10) ?? null,
+        tipo_transmissao:  body.data.tipo_transmissao ?? null,
+        status:            'PENDENTE',
       })
       .select('id')
       .single()

@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { randomUUID } from 'node:crypto'
 import { env } from '../../config/env'
 import { requireAdmin } from '../middlewares/auth.middleware'
+import { supabase } from '../../database/supabase'
 
 const meetingTasksSchema = z.object({
   transcricao: z.string().max(50000),
@@ -196,8 +198,14 @@ function extractWithRules(transcricao: string): MeetingTasksResponse {
   return { tasks, mode: 'rule-based' }
 }
 
+const meetingMinutesSchema = z.object({
+  titulo:         z.string().min(1).max(200),
+  conteudo:       z.string().min(1).max(20000),
+  recipient_ids:  z.array(z.string().min(1)).min(1).max(100),
+})
+
 export async function meetingAIRoutes(app: FastifyInstance) {
-  // POST /ai/meeting-tasks — admin extrai tarefas de transcrição
+  // POST /ai/meeting-tasks — admin extrai tarefas de transcrição (LGPD: sem armazenamento)
   app.post<{ Body: z.infer<typeof meetingTasksSchema> }>(
     '/ai/meeting-tasks',
     { preHandler: requireAdmin },
@@ -213,6 +221,57 @@ export async function meetingAIRoutes(app: FastifyInstance) {
         console.error('Meeting AI extraction error:', message)
         return reply.status(500).send({ error: message })
       }
+    }
+  )
+
+  // POST /meetings/minutes — admin salva ata e notifica destinatários in-app
+  app.post(
+    '/meetings/minutes',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const body = meetingMinutesSchema.safeParse(request.body)
+      if (!body.success) return reply.status(400).send({ error: body.error.flatten() })
+
+      const autorId = (request.user as { sub: string }).sub
+      const minuteId = randomUUID()
+
+      // Persiste a ata
+      const { error: insErr } = await supabase.from('meeting_minutes').insert({
+        id: minuteId, autor_id: autorId,
+        titulo: body.data.titulo, conteudo: body.data.conteudo,
+      })
+      if (insErr) return reply.status(500).send({ error: insErr.message })
+
+      // Notifica cada destinatário
+      const notifs = body.data.recipient_ids.map(uid => ({
+        id:        randomUUID(),
+        user_id:   uid,
+        task_id:   null,
+        tipo:      'ATA',
+        mensagem:  `📄 Ata disponível: "${body.data.titulo}"`,
+        lida:      false,
+      }))
+      if (notifs.length) {
+        const { error: nErr } = await supabase.from('task_notifications').insert(notifs)
+        if (nErr) console.warn('Notificação de ata parcialmente falhou:', nErr.message)
+      }
+
+      return reply.status(201).send({ id: minuteId, sent: notifs.length })
+    }
+  )
+
+  // GET /meetings/minutes — admin lista atas
+  app.get(
+    '/meetings/minutes',
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      const { data, error } = await supabase
+        .from('meeting_minutes')
+        .select('id, titulo, autor_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) return reply.status(500).send({ error: error.message })
+      return reply.send(data ?? [])
     }
   )
 }

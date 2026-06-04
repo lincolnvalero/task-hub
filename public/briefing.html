@@ -380,9 +380,20 @@
         <textarea id="fDescricao" name="descricao" placeholder="Descreva o que precisa ser criado, o objetivo do conteúdo, referências, tom de voz, público-alvo..." required minlength="10" maxlength="3000"></textarea>
       </div>
 
-      <div class="form-row">
-        <label for="fDataEvento">Data do evento / publicação desejada</label>
-        <input type="date" id="fDataEvento" name="data_evento" />
+      <div class="form-row two-col">
+        <div>
+          <label for="fDataEvento">Data do evento / publicação desejada</label>
+          <input type="date" id="fDataEvento" name="data_evento" />
+        </div>
+        <div>
+          <label for="fTipoTransmissao">Formato de transmissão</label>
+          <select id="fTipoTransmissao" name="tipo_transmissao">
+            <option value="">Não se aplica / não sei</option>
+            <option value="GRAVACAO">🎬 Apenas gravação (editar e publicar depois)</option>
+            <option value="AO_VIVO">📡 Transmissão ao vivo (live)</option>
+            <option value="AMBOS">🎬📡 Gravação + Live</option>
+          </select>
+        </div>
       </div>
 
       <!-- LGPD Consent -->
@@ -432,13 +443,14 @@
       e.preventDefault()
       hideError()
 
-      const nome      = document.getElementById('fNome').value.trim()
-      const email     = document.getElementById('fEmail').value.trim()
-      const tipo      = document.getElementById('fTipo').value
-      const canal     = document.getElementById('fCanal').value || undefined
-      const descricao = document.getElementById('fDescricao').value.trim()
-      const dataEvt   = document.getElementById('fDataEvento').value || undefined
-      const consent   = document.getElementById('fLgpd').checked
+      const nome             = document.getElementById('fNome').value.trim()
+      const email            = document.getElementById('fEmail').value.trim()
+      const tipo             = document.getElementById('fTipo').value
+      const canal            = document.getElementById('fCanal').value || undefined
+      const descricao        = document.getElementById('fDescricao').value.trim()
+      const dataEvt          = document.getElementById('fDataEvento').value || undefined
+      const tipoTransmissao  = document.getElementById('fTipoTransmissao').value || undefined
+      const consent          = document.getElementById('fLgpd').checked
 
       // Client-side validation
       if (!nome || nome.length < 2) {
@@ -475,8 +487,9 @@
         descricao,
         consentimento_lgpd: true,
       }
-      if (canal)   payload.canal       = canal
-      if (dataEvt) payload.data_evento = dataEvt
+      if (canal)             payload.canal             = canal
+      if (dataEvt)           payload.data_evento       = dataEvt
+      if (tipoTransmissao)   payload.tipo_transmissao  = tipoTransmissao
 
       submitBtn.disabled    = true
       submitBtn.textContent = 'Enviando...'

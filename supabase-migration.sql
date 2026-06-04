@@ -225,3 +225,26 @@ CREATE POLICY "ecl_all" ON event_checklist_items FOR ALL USING (true) WITH CHECK
 
 -- Feature 2: calendar_source column (COMUNICACAO, CONVENCAO, GERAL)
 ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS calendar_source TEXT DEFAULT 'COMUNICACAO';
+
+-- Feature 3: tipo_transmissao + cover_url
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS tipo_transmissao TEXT CHECK (
+  tipo_transmissao IS NULL OR tipo_transmissao IN ('GRAVACAO', 'AO_VIVO', 'AMBOS')
+);
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS cover_url TEXT;
+
+-- tipo_transmissao no briefing público
+ALTER TABLE briefing_requests ADD COLUMN IF NOT EXISTS tipo_transmissao TEXT CHECK (
+  tipo_transmissao IS NULL OR tipo_transmissao IN ('GRAVACAO', 'AO_VIVO', 'AMBOS')
+);
+
+-- 13. Atas de reunião (persistentes, vinculadas a usuários por notificação)
+CREATE TABLE IF NOT EXISTS meeting_minutes (
+  id          TEXT        PRIMARY KEY,
+  autor_id    TEXT        REFERENCES users(id) ON DELETE SET NULL,
+  titulo      TEXT        NOT NULL CHECK (char_length(titulo) BETWEEN 1 AND 200),
+  conteudo    TEXT        NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE meeting_minutes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "mm_all" ON meeting_minutes;
+CREATE POLICY "mm_all" ON meeting_minutes FOR ALL USING (true) WITH CHECK (true);

@@ -2058,6 +2058,7 @@ function renderBriefings(briefings) {
         <span class="briefing-status-badge ${b.status}">${BF_STATUS_LABELS[b.status] || b.status}</span>
         <span>${escapeHtml(b.tipo)}</span>
         ${b.canal ? `<span>${escapeHtml(b.canal)}</span>` : ''}
+        ${b.tipo_transmissao ? `<span class="agenda-tx-badge agenda-tx-${b.tipo_transmissao}">${TRANSMISSAO_LABELS[b.tipo_transmissao]||b.tipo_transmissao}</span>` : ''}
         ${b.data_evento ? `<span>📅 ${new Date(b.data_evento).toLocaleDateString('pt-BR')}</span>` : ''}
         <span style="color:var(--text-dim)">${dt}</span>
       </div>
@@ -2404,6 +2405,8 @@ $('#calShowEvents')?.addEventListener('change',    e => { calState.filters.event
 $('#calFilterCampaign')?.addEventListener('change', e => { calState.filters.campaignId = e.target.value; renderCalendar() })
 
 /* CRUD de eventos avulsos */
+const TRANSMISSAO_LABELS = { GRAVACAO:'🎬 Apenas gravação', AO_VIVO:'📡 Ao vivo', AMBOS:'🎬📡 Gravação + Live' }
+
 function openEventDialog(ev, prefillDate) {
   const isEdit = !!ev
   $('#eventDialogTitle').textContent = isEdit ? 'Editar evento' : 'Novo evento'
@@ -2418,9 +2421,54 @@ function openEventDialog(ev, prefillDate) {
   $('#evCor').value       = ev?.cor || '#16a34a'
   populateCampaignSelect('#evCampaign', ev?.campaign_id || '')
   $('#evCalSource').value = ev?.calendar_source || 'COMUNICACAO'
+  $('#evTipoTransmissao').value = ev?.tipo_transmissao || ''
+  // Cover preview
+  const preview = $('#evCoverPreview')
+  const placeholder = $('#evCoverPlaceholder')
+  if (ev?.cover_url && preview) {
+    preview.src = ev.cover_url; preview.hidden = false
+    if (placeholder) placeholder.hidden = true
+  } else if (preview) {
+    preview.src = ''; preview.hidden = true
+    if (placeholder) placeholder.hidden = false
+  }
+  // Reset upload state
+  const upStatus = $('#evCoverUploadStatus'); if (upStatus) upStatus.hidden = true
+  const fileInput = $('#evCoverFile'); if (fileInput) fileInput.value = ''
+  // Store pending cover URL for this edit session
+  window._pendingCoverUrl = ev?.cover_url || null
   $('#evDeleteBtn').hidden = !isEdit
   $('#eventFormError').hidden = true
   $('#eventDialog').showModal()
+}
+
+// Cover art upload wiring
+$('#evCoverDropzone')?.addEventListener('click', () => $('#evCoverFile')?.click())
+$('#evCoverDropzone')?.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('drag-over') })
+$('#evCoverDropzone')?.addEventListener('dragleave', e => { e.currentTarget.classList.remove('drag-over') })
+$('#evCoverDropzone')?.addEventListener('drop', e => {
+  e.preventDefault(); e.currentTarget.classList.remove('drag-over')
+  const file = e.dataTransfer?.files?.[0]; if (file) handleCoverFile(file)
+})
+$('#evCoverFile')?.addEventListener('change', e => {
+  const file = e.target.files?.[0]; if (file) handleCoverFile(file)
+})
+
+function handleCoverFile(file) {
+  if (file.size > 2 * 1024 * 1024) { toast('Imagem muito grande. Máximo: 2 MB.', 'error'); return }
+  if (!/^image\/(jpeg|png|webp|gif|avif)$/.test(file.type)) { toast('Formato inválido. Use JPG, PNG, WebP ou GIF.', 'error'); return }
+  const reader = new FileReader()
+  reader.onload = e => {
+    const dataUrl = e.target.result
+    const preview = $('#evCoverPreview'), ph = $('#evCoverPlaceholder')
+    if (preview) { preview.src = dataUrl; preview.hidden = false }
+    if (ph) ph.hidden = true
+    // Store for upload
+    window._pendingCoverFile = { file_base64: dataUrl.split(',')[1], mime_type: file.type, filename: file.name }
+    const st = $('#evCoverUploadStatus')
+    if (st) { st.textContent = '📸 Nova imagem selecionada — será enviada ao salvar.'; st.hidden = false; st.className = 'ev-cover-upload-status info' }
+  }
+  reader.readAsDataURL(file)
 }
 $('#newEventBtn')?.addEventListener('click', () => openEventDialog(null))
 $('#cancelEventBtn')?.addEventListener('click', () => $('#eventDialog').close())
@@ -2428,20 +2476,41 @@ $('#eventForm')?.addEventListener('submit', async e => {
   e.preventDefault()
   const id = $('#evId').value
   const body = {
-    titulo:          $('#evTitulo').value.trim(),
-    descricao:       $('#evDescricao').value.trim() || undefined,
-    data:            $('#evData').value,
-    hora:            $('#evHora').value || undefined,
-    local:           $('#evLocal').value.trim() || undefined,
-    lat:             parseFloat($('#evLat').value) || undefined,
-    lng:             parseFloat($('#evLng').value) || undefined,
-    cor:             $('#evCor').value || undefined,
-    campaign_id:     $('#evCampaign').value || undefined,
-    calendar_source: $('#evCalSource').value || 'COMUNICACAO',
+    titulo:            $('#evTitulo').value.trim(),
+    descricao:         $('#evDescricao').value.trim() || undefined,
+    data:              $('#evData').value,
+    hora:              $('#evHora').value || undefined,
+    local:             $('#evLocal').value.trim() || undefined,
+    lat:               parseFloat($('#evLat').value) || undefined,
+    lng:               parseFloat($('#evLng').value) || undefined,
+    cor:               $('#evCor').value || undefined,
+    campaign_id:       $('#evCampaign').value || undefined,
+    calendar_source:   $('#evCalSource').value || 'COMUNICACAO',
+    tipo_transmissao:  $('#evTipoTransmissao').value || undefined,
   }
   try {
+    let savedId = id
     if (id) await api('/events/'+id, { method:'PATCH', body: JSON.stringify(body) })
-    else    await api('/events',     { method:'POST',  body: JSON.stringify(body) })
+    else {
+      const created = await api('/events', { method:'POST', body: JSON.stringify(body) })
+      savedId = created?.id
+    }
+    // Upload da capa se houver arquivo novo
+    if (savedId && window._pendingCoverFile) {
+      const st = $('#evCoverUploadStatus')
+      if (st) { st.textContent = '⏳ Enviando capa…'; st.hidden = false; st.className = 'ev-cover-upload-status info' }
+      try {
+        const res = await api('/events/'+savedId+'/cover', {
+          method: 'POST', body: JSON.stringify(window._pendingCoverFile),
+        })
+        if (res?.cover_url) {
+          if (st) { st.textContent = '✓ Capa enviada com sucesso!'; st.className = 'ev-cover-upload-status success' }
+        }
+      } catch (covErr) {
+        toast('Evento salvo, mas a capa não pôde ser enviada: ' + covErr.message, 'error')
+      }
+      window._pendingCoverFile = null
+    }
     $('#eventDialog').close()
     toast(id ? 'Evento atualizado.' : 'Evento criado.', 'success')
     const ev = await api('/events'); calState.events = Array.isArray(ev) ? ev : []
@@ -2715,20 +2784,23 @@ function renderAgendaList() {
         const color = e.cor || sourceColors[source]
         const sourceLabel = sourceLabels[source]
 
-        // Count deliverables by phase (placeholder - would need full checklist data)
+        const txBadge = e.tipo_transmissao ? `<span class="agenda-tx-badge agenda-tx-${e.tipo_transmissao}">${TRANSMISSAO_LABELS[e.tipo_transmissao]||e.tipo_transmissao}</span>` : ''
         return `<div class="agenda-event-card" data-event-id="${e.id}">
-          <div class="agenda-event-card-color" style="background:${color}"></div>
+          ${e.cover_url
+            ? `<div class="agenda-event-cover" style="background-image:url(${JSON.stringify(e.cover_url)})"></div>`
+            : `<div class="agenda-event-card-color" style="background:${color}"></div>`}
           <div class="agenda-event-card-body">
-            <div class="agenda-event-card-title">${escapeHtml(e.titulo)}</div>
+            <div class="agenda-event-card-title" title="${escapeHtml(e.titulo)}">${escapeHtml(e.titulo)}</div>
             <div class="agenda-event-card-meta">
               <span>📅 ${new Date(e.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
               ${e.hora ? `<span>⏰ ${e.hora}</span>` : ''}
               ${e.local ? `<span>📍 ${escapeHtml(e.local.slice(0, 30))}</span>` : ''}
             </div>
-            <div style="display:flex;gap:8px;align-items:center">
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
               <span class="agenda-event-card-source-badge">${sourceLabel}</span>
-              ${isAdmin() ? `<button class="btn-ghost btn-xs" data-edit-event="${e.id}" title="Editar">✏</button>` : ''}
-              <button class="btn-ghost btn-xs" data-open-event="${e.id}" title="Abrir operação">📋 Operação</button>
+              ${txBadge}
+              ${isAdmin() ? `<button class="btn-ghost btn-xs" data-edit-event="${e.id}" title="Editar evento">✏</button>` : ''}
+              <button class="btn-ghost btn-xs" data-open-event="${e.id}" title="Abrir painel de operação">📋 Operação</button>
             </div>
           </div>
         </div>`
@@ -2989,12 +3061,29 @@ async function openEventOpPanel(eventId) {
   // Populate header
   const cor = ev.cor || '#16a34a'
   $('#eopColorDot').style.background = cor
+
+  // Cover thumbnail
+  const coverThumb = $('#eopCoverThumb')
+  if (coverThumb) {
+    if (ev.cover_url) {
+      coverThumb.style.backgroundImage = `url(${JSON.stringify(ev.cover_url)})`
+      coverThumb.hidden = false
+    } else {
+      coverThumb.hidden = true
+    }
+  }
+
   $('#eopTitle').textContent = ev.titulo
   const parts = []
   if (ev.data)  parts.push(new Date(ev.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }))
   if (ev.hora)  parts.push('às ' + ev.hora)
   if (ev.local) parts.push('📍 ' + ev.local)
-  $('#eopMeta').textContent = parts.join(' · ')
+  if (ev.tipo_transmissao) parts.push(TRANSMISSAO_LABELS[ev.tipo_transmissao] || ev.tipo_transmissao)
+  $('#eopMeta').innerHTML = parts.map((p, i) =>
+    i === parts.length - 1 && ev.tipo_transmissao && p === (TRANSMISSAO_LABELS[ev.tipo_transmissao] || ev.tipo_transmissao)
+      ? `<span class="eop-transmissao-badge eop-tx-${ev.tipo_transmissao}">${escapeHtml(p)}</span>`
+      : escapeHtml(p)
+  ).join(' · ')
 
   // Reset filter state
   $('#eopMyDeptFilter').checked = false
@@ -3703,6 +3792,101 @@ const _notifBadgeObs = new MutationObserver(() => {
   mbnBadge.textContent = badge.textContent
 })
 if ($('#notifBadge')) _notifBadgeObs.observe($('#notifBadge'), { childList: true, characterData: true, subtree: true, attributes: true })
+
+/* ══════════════════════════════════════════════════════════════════
+   ── ENVIAR ATA DE REUNIÃO ────────────────────────────────────────
+   ══════════════════════════════════════════════════════════════════ */
+$('#sendAtaBtn')?.addEventListener('click', async () => {
+  // Ensure users are loaded
+  if (!state.users.length) {
+    try { state.users = await api('/users') } catch {}
+  }
+
+  // Build pre-filled ata content from extracted tasks
+  const tasks = _selectedMeetingTasks || []
+  const context = $('#meetingContext')?.value.trim() || ''
+  const defaultTitulo = context ? `Ata — ${context}` : `Ata de reunião`
+  const defaultConteudo = [
+    context ? `**Reunião:** ${context}` : '',
+    `**Data:** ${new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}`,
+    '',
+    '**Tarefas identificadas:**',
+    ...tasks.filter(t => t._checked).map((t, i) => `${i+1}. ${t.titulo}${t.responsavel_sugerido ? ` (${t.responsavel_sugerido})` : ''}${t.prazo_sugerido ? ` — prazo: ${t.prazo_sugerido}` : ''}`),
+    '',
+    '**Observações adicionais:**',
+    '',
+  ].filter(l => l !== undefined).join('\n')
+
+  const dlg = document.createElement('dialog')
+  dlg.className = 'bf-convert-dialog'
+  const users = (state.users || []).filter(u => !u.deleted_at)
+  dlg.innerHTML = `
+    <div class="bf-dlg-header">
+      <h3>📄 Enviar Ata de Reunião</h3>
+      <button type="button" id="_ataClose" class="icon-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="bf-dlg-body">
+      <div class="bf-field">
+        <label>Título da ata</label>
+        <input type="text" id="_ataTitulo" value="${escapeHtml(defaultTitulo)}" maxlength="200" />
+      </div>
+      <div class="bf-field">
+        <label>Conteúdo</label>
+        <textarea id="_ataConteudo" rows="10" maxlength="20000" style="font-family:monospace;font-size:.82rem">${escapeHtml(defaultConteudo)}</textarea>
+      </div>
+      <div class="bf-field">
+        <label>Destinatários <span style="color:var(--text-muted);font-size:.75rem">(selecione quem deve receber a notificação)</span></label>
+        <div class="ata-recipients" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+          ${users.map(u => `
+            <label class="ata-recipient-chip">
+              <input type="checkbox" class="ata-recip-check" value="${u.id}" />
+              <div class="ata-recip-avatar" style="background:${getAvatarColor(u.nome)}">${getInitials(u.nome)}</div>
+              <span>${escapeHtml(u.nome)}</span>
+            </label>`).join('')}
+        </div>
+        ${!users.length ? '<p style="color:var(--text-muted);font-size:.82rem">Nenhum usuário cadastrado.</p>' : ''}
+      </div>
+      <p id="_ataError" style="color:var(--danger);font-size:.82rem;margin:0" hidden></p>
+    </div>
+    <div class="bf-dlg-footer">
+      <button type="button" id="_ataCancel" class="btn-ghost">Cancelar</button>
+      <button type="button" id="_ataOk" class="btn-primary">📤 Enviar ata</button>
+    </div>`
+  document.body.appendChild(dlg)
+  dlg.showModal()
+
+  function closeDlg() { dlg.close(); dlg.remove() }
+  dlg.querySelector('#_ataClose').addEventListener('click', closeDlg, { once: true })
+  dlg.querySelector('#_ataCancel').addEventListener('click', closeDlg, { once: true })
+  dlg.addEventListener('cancel', closeDlg, { once: true })
+
+  dlg.querySelector('#_ataOk').addEventListener('click', async () => {
+    const titulo   = dlg.querySelector('#_ataTitulo').value.trim()
+    const conteudo = dlg.querySelector('#_ataConteudo').value.trim()
+    const recipients = Array.from(dlg.querySelectorAll('.ata-recip-check:checked')).map(c => c.value)
+    const errEl = dlg.querySelector('#_ataError')
+
+    if (!titulo)              { errEl.textContent = 'Informe o título da ata.'; errEl.hidden = false; return }
+    if (!conteudo)            { errEl.textContent = 'O conteúdo não pode estar vazio.'; errEl.hidden = false; return }
+    if (!recipients.length)   { errEl.textContent = 'Selecione ao menos um destinatário.'; errEl.hidden = false; return }
+
+    const okBtn = dlg.querySelector('#_ataOk')
+    okBtn.disabled = true; okBtn.textContent = '⏳ Enviando…'
+    try {
+      const res = await api('/meetings/minutes', {
+        method: 'POST',
+        body: JSON.stringify({ titulo, conteudo, recipient_ids: recipients }),
+      })
+      toast(`✓ Ata enviada para ${res.sent} pessoa${res.sent !== 1 ? 's' : ''}.`, 'success')
+      closeDlg()
+    } catch (err) {
+      errEl.textContent = err.message; errEl.hidden = false
+      okBtn.disabled = false; okBtn.textContent = '📤 Enviar ata'
+    }
+  }, { once: true })
+})
 
 /* ── Init ──────────────────────────────────────────────────────── */
 if (state.token && state.user) showApp()
