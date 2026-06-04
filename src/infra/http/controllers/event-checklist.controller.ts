@@ -5,24 +5,26 @@ import { supabase } from '../../database/supabase'
 import { requireAuth, requireAdmin } from '../middlewares/auth.middleware'
 
 const ECL_SELECT =
-  'id, event_id, fase, texto, responsavel_id, departamento, prazo, feito, feito_em, feito_por, ordem, created_at'
+  'id, event_id, fase, texto, responsavel_id, departamento, prazo, feito, feito_em, feito_por, ordem, tipo_entregavel, created_at'
 
 const createItemSchema = z.object({
-  fase:           z.enum(['PRE', 'INTRA', 'POS']).default('INTRA'),
-  texto:          z.string().min(1).max(500),
-  responsavel_id: z.string().min(1).optional(),
-  departamento:   z.string().max(100).optional(),
-  prazo:          z.string().optional(),
-  ordem:          z.coerce.number().int().min(0).default(0),
+  fase:             z.enum(['PRE', 'INTRA', 'POS']).default('INTRA'),
+  texto:            z.string().min(1).max(500),
+  responsavel_id:   z.string().min(1).optional(),
+  departamento:     z.string().max(100).optional(),
+  prazo:            z.string().optional(),
+  ordem:            z.coerce.number().int().min(0).default(0),
+  tipo_entregavel:  z.string().max(100).optional(),
 })
 
 const updateItemSchema = z.object({
-  texto:          z.string().min(1).max(500).optional(),
-  feito:          z.boolean().optional(),
-  responsavel_id: z.string().min(1).optional().nullable(),
-  departamento:   z.string().max(100).optional().nullable(),
-  prazo:          z.string().optional().nullable(),
-  ordem:          z.coerce.number().int().min(0).optional(),
+  texto:            z.string().min(1).max(500).optional(),
+  feito:            z.boolean().optional(),
+  responsavel_id:   z.string().min(1).optional().nullable(),
+  departamento:     z.string().max(100).optional().nullable(),
+  prazo:            z.string().optional().nullable(),
+  ordem:            z.coerce.number().int().min(0).optional(),
+  tipo_entregavel:  z.string().max(100).optional().nullable(),
 })
 
 export async function eventChecklistRoutes(app: FastifyInstance) {
@@ -53,14 +55,15 @@ export async function eventChecklistRoutes(app: FastifyInstance) {
       const { data, error } = await supabase
         .from('event_checklist_items')
         .insert({
-          id:             randomUUID(),
-          event_id:       request.params.eventId,
-          fase:           body.data.fase,
-          texto:          body.data.texto,
-          responsavel_id: body.data.responsavel_id ?? null,
-          departamento:   body.data.departamento ?? null,
-          prazo:          body.data.prazo ?? null,
-          ordem:          body.data.ordem,
+          id:                randomUUID(),
+          event_id:          request.params.eventId,
+          fase:              body.data.fase,
+          texto:             body.data.texto,
+          responsavel_id:    body.data.responsavel_id ?? null,
+          departamento:      body.data.departamento ?? null,
+          prazo:             body.data.prazo ?? null,
+          ordem:             body.data.ordem,
+          tipo_entregavel:   body.data.tipo_entregavel ?? null,
         })
         .select(ECL_SELECT)
         .single()
@@ -87,11 +90,12 @@ export async function eventChecklistRoutes(app: FastifyInstance) {
       // campos editáveis só por admins — preHandler garante no nível de rota se necessário,
       // mas como o PATCH é para todos (toggle feito), aceitamos os campos extras igualmente
       // (o role check está no preHandler de rotas separadas; aqui deixamos o controle no front)
-      if (body.data.texto          !== undefined) payload.texto          = body.data.texto
-      if (body.data.responsavel_id !== undefined) payload.responsavel_id = body.data.responsavel_id
-      if (body.data.departamento   !== undefined) payload.departamento   = body.data.departamento
-      if (body.data.prazo          !== undefined) payload.prazo          = body.data.prazo
-      if (body.data.ordem          !== undefined) payload.ordem          = body.data.ordem
+      if (body.data.texto            !== undefined) payload.texto            = body.data.texto
+      if (body.data.responsavel_id   !== undefined) payload.responsavel_id   = body.data.responsavel_id
+      if (body.data.departamento     !== undefined) payload.departamento     = body.data.departamento
+      if (body.data.prazo            !== undefined) payload.prazo            = body.data.prazo
+      if (body.data.ordem            !== undefined) payload.ordem            = body.data.ordem
+      if (body.data.tipo_entregavel  !== undefined) payload.tipo_entregavel  = body.data.tipo_entregavel
 
       const { data, error } = await supabase
         .from('event_checklist_items')

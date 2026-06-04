@@ -215,9 +215,13 @@ CREATE TABLE IF NOT EXISTS event_checklist_items (
   feito_em        TIMESTAMPTZ,
   feito_por       TEXT        REFERENCES users(id) ON DELETE SET NULL,
   ordem           INT         NOT NULL DEFAULT 0,
+  tipo_entregavel TEXT,                      -- Arte, Foto, Video, Live, Texto, Relatorio, Outro
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ecl_event ON event_checklist_items(event_id);
 ALTER TABLE event_checklist_items ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "ecl_all" ON event_checklist_items;
 CREATE POLICY "ecl_all" ON event_checklist_items FOR ALL USING (true) WITH CHECK (true);
+
+-- Feature 2: calendar_source column (COMUNICACAO, CONVENCAO, GERAL)
+ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS calendar_source TEXT DEFAULT 'COMUNICACAO';

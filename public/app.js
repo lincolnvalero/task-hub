@@ -270,7 +270,8 @@ function navigate(view) {
   if (view === 'briefings') loadBriefings()
   if (view === 'campaigns') loadCampaigns()
   if (view === 'calendar')  loadCalendar()
-  if (view === 'mapa')      loadMapa()
+  if (view === 'agenda')    loadAgenda()
+  if (view === 'reunioes')  loadReunioes()
 }
 
 /* ── Auth events ───────────────────────────────────────────────── */
@@ -2416,6 +2417,7 @@ function openEventDialog(ev, prefillDate) {
   $('#evLng').value       = ev?.lng != null ? ev.lng : ''
   $('#evCor').value       = ev?.cor || '#16a34a'
   populateCampaignSelect('#evCampaign', ev?.campaign_id || '')
+  $('#evCalSource').value = ev?.calendar_source || 'COMUNICACAO'
   $('#evDeleteBtn').hidden = !isEdit
   $('#eventFormError').hidden = true
   $('#eventDialog').showModal()
@@ -2426,15 +2428,16 @@ $('#eventForm')?.addEventListener('submit', async e => {
   e.preventDefault()
   const id = $('#evId').value
   const body = {
-    titulo:      $('#evTitulo').value.trim(),
-    descricao:   $('#evDescricao').value.trim() || undefined,
-    data:        $('#evData').value,
-    hora:        $('#evHora').value || undefined,
-    local:       $('#evLocal').value.trim() || undefined,
-    lat:         parseFloat($('#evLat').value) || undefined,
-    lng:         parseFloat($('#evLng').value) || undefined,
-    cor:         $('#evCor').value || undefined,
-    campaign_id: $('#evCampaign').value || undefined,
+    titulo:          $('#evTitulo').value.trim(),
+    descricao:       $('#evDescricao').value.trim() || undefined,
+    data:            $('#evData').value,
+    hora:            $('#evHora').value || undefined,
+    local:           $('#evLocal').value.trim() || undefined,
+    lat:             parseFloat($('#evLat').value) || undefined,
+    lng:             parseFloat($('#evLng').value) || undefined,
+    cor:             $('#evCor').value || undefined,
+    campaign_id:     $('#evCampaign').value || undefined,
+    calendar_source: $('#evCalSource').value || 'COMUNICACAO',
   }
   try {
     if (id) await api('/events/'+id, { method:'PATCH', body: JSON.stringify(body) })
@@ -2442,7 +2445,7 @@ $('#eventForm')?.addEventListener('submit', async e => {
     $('#eventDialog').close()
     toast(id ? 'Evento atualizado.' : 'Evento criado.', 'success')
     const ev = await api('/events'); calState.events = Array.isArray(ev) ? ev : []
-    renderCalendar()
+    renderCalendar(); renderAgendaList()
   } catch (err) { $('#eventFormError').textContent = err.message; $('#eventFormError').hidden = false }
 })
 $('#evDeleteBtn')?.addEventListener('click', async () => {
@@ -2654,10 +2657,310 @@ function renderMapaList() {
   )
 }
 
-// Filter checkboxes
-$('#mapaShowTasks')?.addEventListener('change',     e => { mapaFilters.tarefas   = e.target.checked; renderMapaPins(); renderMapaList() })
-$('#mapaShowCampaigns')?.addEventListener('change', e => { mapaFilters.campanhas = e.target.checked; renderMapaPins(); renderMapaList() })
-$('#mapaShowEvents')?.addEventListener('change',    e => { mapaFilters.eventos   = e.target.checked; renderMapaPins(); renderMapaList() })
+/* ── Agenda de Eventos (Feature 2: Renamed from Mapa) ────────────────── */
+let _agendaSourceFilter = 'ALL'
+let _agendaFromDate = null
+let _agendaToDate = null
+
+async function loadAgenda() {
+  try {
+    if (!(calState.events || []).length) {
+      const ev = await api('/events')
+      calState.events = Array.isArray(ev) ? ev : []
+    }
+  } catch (err) { toast(err.message, 'error') }
+  renderAgendaList()
+}
+
+function renderAgendaList() {
+  const list = $('#agendaList')
+  if (!list) return
+
+  let events = (calState.events || []).filter(e => !e.deleted_at)
+
+  // Filter by source
+  if (_agendaSourceFilter !== 'ALL') {
+    events = events.filter(e => (e.calendar_source || 'COMUNICACAO') === _agendaSourceFilter)
+  }
+
+  // Filter by date range
+  if (_agendaFromDate) events = events.filter(e => e.data >= _agendaFromDate)
+  if (_agendaToDate) events = events.filter(e => e.data <= _agendaToDate)
+
+  // Sort by date
+  events.sort((a, b) => new Date(a.data) - new Date(b.data))
+
+  if (!events.length) {
+    list.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center">Nenhum evento encontrado.</div>'
+    return
+  }
+
+  // Group by month
+  const grouped = {}
+  events.forEach(e => {
+    const date = new Date(e.data + 'T00:00:00')
+    const month = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    if (!grouped[month]) grouped[month] = []
+    grouped[month].push(e)
+  })
+
+  const sourceColors = { COMUNICACAO: '#E8743B', CONVENCAO: '#6366f1', GERAL: '#16a34a' }
+  const sourceLabels = { COMUNICACAO: '📣 Comunicação', CONVENCAO: '🏛️ Convenção Regional', GERAL: '🌍 Geral' }
+
+  list.innerHTML = Object.entries(grouped).map(([month, monthEvents]) => `
+    <div class="agenda-month-group">
+      <div class="agenda-month-header">${month}</div>
+      ${monthEvents.map(e => {
+        const source = e.calendar_source || 'COMUNICACAO'
+        const color = e.cor || sourceColors[source]
+        const sourceLabel = sourceLabels[source]
+
+        // Count deliverables by phase (placeholder - would need full checklist data)
+        return `<div class="agenda-event-card" data-event-id="${e.id}">
+          <div class="agenda-event-card-color" style="background:${color}"></div>
+          <div class="agenda-event-card-body">
+            <div class="agenda-event-card-title">${escapeHtml(e.titulo)}</div>
+            <div class="agenda-event-card-meta">
+              <span>📅 ${new Date(e.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
+              ${e.hora ? `<span>⏰ ${e.hora}</span>` : ''}
+              ${e.local ? `<span>📍 ${escapeHtml(e.local.slice(0, 30))}</span>` : ''}
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span class="agenda-event-card-source-badge">${sourceLabel}</span>
+              ${isAdmin() ? `<button class="btn-ghost btn-xs" data-edit-event="${e.id}" title="Editar">✏</button>` : ''}
+              <button class="btn-ghost btn-xs" data-open-event="${e.id}" title="Abrir operação">📋 Operação</button>
+            </div>
+          </div>
+        </div>`
+      }).join('')}
+    </div>
+  `).join('')
+
+  // Event handlers
+  $$('[data-open-event]', list).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.openEvent
+      navigate('calendar')
+      setTimeout(() => openEventOpPanel(id), 100)
+    })
+  })
+  $$('[data-edit-event]', list).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.editEvent
+      const ev = (calState.events || []).find(e => e.id === id)
+      if (ev) openEventDialog(ev)
+    })
+  })
+}
+
+// Agenda source filters
+$$('.agenda-source-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    $$('.agenda-source-chip').forEach(c => c.classList.remove('active'))
+    chip.classList.add('active')
+    _agendaSourceFilter = chip.dataset.source
+    renderAgendaList()
+  })
+})
+
+// Agenda date filters
+$('#agendaFromDate')?.addEventListener('change', e => {
+  _agendaFromDate = e.target.value
+  renderAgendaList()
+})
+$('#agendaToDate')?.addEventListener('change', e => {
+  _agendaToDate = e.target.value
+  renderAgendaList()
+})
+
+// New event button
+$('#agendaNewEventBtn')?.addEventListener('click', () => openEventDialog())
+
+/* ── Reuniões (Feature 3: Meeting Transcript AI) ────────────────────── */
+function loadReunioes() {
+  // Reset the form on load
+  $('#meetingContext').value = ''
+  $('#meetingTranscript').value = ''
+  $('#meetingResultsWrap').hidden = true
+  updateMeetingCharCount()
+}
+
+$('#meetingTranscript')?.addEventListener('input', updateMeetingCharCount)
+function updateMeetingCharCount() {
+  const textarea = $('#meetingTranscript')
+  const counter = $('#meetingCharCount')
+  if (textarea && counter) {
+    const len = textarea.value.length
+    counter.textContent = `${len} / 50.000 caracteres`
+  }
+}
+
+$('#analyzeMeetingBtn')?.addEventListener('click', async () => {
+  const transcript = $('#meetingTranscript')?.value.trim()
+  if (!transcript) { toast('Cole uma transcrição primeiro.', 'error'); return }
+
+  const btn = $('#analyzeMeetingBtn')
+  btn.disabled = true
+  btn.textContent = '⏳ Analisando…'
+
+  try {
+    const result = await api('/ai/meeting-tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        transcricao: transcript,
+        contexto: $('#meetingContext')?.value.trim(),
+      }),
+    })
+    renderMeetingTasks(result.tasks, result.mode)
+  } catch (err) {
+    toast(err.message, 'error')
+  } finally {
+    btn.disabled = false
+    btn.textContent = '🤖 Extrair tarefas'
+  }
+})
+
+let _selectedMeetingTasks = []
+
+function renderMeetingTasks(tasks, mode) {
+  const wrap = $('#meetingResultsWrap')
+  const list = $('#meetingTaskList')
+  if (!wrap || !list) return
+
+  _selectedMeetingTasks = tasks.map((t, i) => ({ ...t, _idx: i, _checked: true }))
+
+  // Count badge
+  $('#meetingTaskCount').textContent = tasks.length
+
+  // Render team picker
+  const teamSelect = $('#meetingTeamSelect')
+  if (teamSelect && (state.teams || []).length) {
+    teamSelect.innerHTML = (state.teams || [])
+      .filter(t => !t.deleted_at)
+      .map(t => `
+        <label class="meeting-team-chip">
+          <input type="checkbox" class="meeting-team-checkbox" value="${t.id}" data-team-id="${t.id}" />
+          <span>${escapeHtml(t.nome)}</span>
+        </label>
+      `).join('')
+  }
+
+  // Render tasks
+  list.innerHTML = tasks.map((task, idx) => `
+    <div class="meeting-task-card" data-task-idx="${idx}">
+      <input type="checkbox" class="meeting-task-check" data-task-idx="${idx}" checked />
+      <div class="meeting-task-body">
+        <div class="meeting-task-titulo">
+          <input type="text" value="${escapeHtml(task.titulo)}" data-task-field="titulo" data-task-idx="${idx}" />
+        </div>
+        <div class="meeting-task-badges">
+          <label class="meeting-task-badge">
+            Prioridade:
+            <select data-task-field="prioridade" data-task-idx="${idx}">
+              <option value="">—</option>
+              <option value="BAIXA" ${task.prioridade === 'BAIXA' ? 'selected' : ''}>Baixa</option>
+              <option value="MEDIA" ${task.prioridade === 'MEDIA' ? 'selected' : ''}>Média</option>
+              <option value="ALTA" ${task.prioridade === 'ALTA' ? 'selected' : ''}>Alta</option>
+            </select>
+          </label>
+          <label class="meeting-task-badge">
+            Canal:
+            <select data-task-field="canal" data-task-idx="${idx}">
+              <option value="">—</option>
+              <option value="INSTAGRAM" ${task.canal === 'INSTAGRAM' ? 'selected' : ''}>Instagram</option>
+              <option value="YOUTUBE" ${task.canal === 'YOUTUBE' ? 'selected' : ''}>YouTube</option>
+              <option value="TIKTOK" ${task.canal === 'TIKTOK' ? 'selected' : ''}>TikTok</option>
+              <option value="LINKEDIN" ${task.canal === 'LINKEDIN' ? 'selected' : ''}>LinkedIn</option>
+              <option value="WHATSAPP" ${task.canal === 'WHATSAPP' ? 'selected' : ''}>WhatsApp</option>
+              <option value="EMAIL" ${task.canal === 'EMAIL' ? 'selected' : ''}>Email</option>
+              <option value="SITE" ${task.canal === 'SITE' ? 'selected' : ''}>Site</option>
+              <option value="EVENTO" ${task.canal === 'EVENTO' ? 'selected' : ''}>Evento</option>
+            </select>
+          </label>
+        </div>
+        ${task.descricao ? `<div class="meeting-task-descr">
+          <textarea data-task-field="descricao" data-task-idx="${idx}" placeholder="Descrição (opcional)">${escapeHtml(task.descricao)}</textarea>
+        </div>` : ''}
+      </div>
+    </div>
+  `).join('')
+
+  // Event listeners for task edits
+  $$('[data-task-field]', list).forEach(input => {
+    input.addEventListener('change', () => {
+      const idx = parseInt(input.dataset.taskIdx)
+      const field = input.dataset.taskField
+      if (_selectedMeetingTasks[idx]) {
+        _selectedMeetingTasks[idx][field] = input.value || undefined
+      }
+    })
+  })
+
+  // Checkboxes for selection
+  $$('.meeting-task-check', list).forEach(check => {
+    check.addEventListener('change', () => {
+      const idx = parseInt(check.dataset.taskIdx)
+      if (_selectedMeetingTasks[idx]) {
+        _selectedMeetingTasks[idx]._checked = check.checked
+      }
+    })
+  })
+
+  wrap.hidden = false
+}
+
+$('#selectAllMeetingTasks')?.addEventListener('click', () => {
+  const allChecked = $$('.meeting-task-check').every(c => c.checked)
+  $$('.meeting-task-check').forEach(c => { c.checked = !allChecked; c.dispatchEvent(new Event('change')) })
+})
+
+$('#createSelectedTasksBtn')?.addEventListener('click', async () => {
+  const teamCheckboxes = $$('.meeting-team-checkbox:checked')
+  const selectedTeamIds = Array.from(teamCheckboxes).map(cb => cb.value)
+
+  if (!selectedTeamIds.length) {
+    toast('Selecione pelo menos uma equipe.', 'error')
+    return
+  }
+
+  const selectedTasks = _selectedMeetingTasks.filter(t => t._checked)
+  if (!selectedTasks.length) {
+    toast('Selecione pelo menos uma tarefa.', 'error')
+    return
+  }
+
+  const btn = $('#createSelectedTasksBtn')
+  btn.disabled = true
+  btn.textContent = '⏳ Criando…'
+
+  let created = 0
+  try {
+    for (const task of selectedTasks) {
+      await api('/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          titulo: task.titulo,
+          descricao: task.descricao,
+          prioridade: task.prioridade || 'MEDIA',
+          canal: task.canal,
+          team_ids: selectedTeamIds,
+        }),
+      })
+      created++
+    }
+    toast(`${created} tarefa${created > 1 ? 's' : ''} criada${created > 1 ? 's' : ''}.`, 'success')
+    // Reset form
+    $('#meetingContext').value = ''
+    $('#meetingTranscript').value = ''
+    $('#meetingResultsWrap').hidden = true
+    updateMeetingCharCount()
+  } catch (err) {
+    toast(`Erro ao criar tarefas: ${err.message}`, 'error')
+  } finally {
+    btn.disabled = false
+    btn.textContent = '✓ Criar tarefas selecionadas'
+  }
+})
 
 /* ── Section reveal on scroll (IntersectionObserver) ───────────── */
 const _revealObserver = new IntersectionObserver((entries) => {
@@ -2841,6 +3144,114 @@ $('#eopAddBtn')?.addEventListener('click', async () => {
   } catch (err) { toast(err.message, 'error') }
 })
 $('#eopAddTexto')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#eopAddBtn').click() } })
+
+// Quick add buttons for common deliverables
+$$('.eop-quick-btn[data-quick-add-tipo]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!_eopEventId) return
+    const tipo = btn.dataset.quickAddTipo
+    const fase = btn.dataset.quickAddFase
+    try {
+      await api('/events/' + _eopEventId + '/checklist', {
+        method: 'POST',
+        body: JSON.stringify({ fase, texto: tipo, tipo_entregavel: tipo }),
+      })
+      await reloadEopItems()
+      toast(`${tipo} adicionado(a).`, 'success')
+    } catch (err) { toast(err.message, 'error') }
+  })
+})
+
+// Template button
+$('#eopTemplateBtn')?.addEventListener('click', async () => {
+  const templates = {
+    'Culto/Domingo': [
+      { fase: 'PRE', texto: 'Arte de divulgação', tipo: 'Arte' },
+      { fase: 'PRE', texto: 'Story de convite', tipo: 'Story' },
+      { fase: 'INTRA', texto: 'Cobertura fotográfica', tipo: 'Fotografia' },
+      { fase: 'POS', texto: 'Post retrospectiva', tipo: 'Post retrospectiva' },
+    ],
+    'Evento Especial': [
+      { fase: 'PRE', texto: 'Arte de divulgação', tipo: 'Arte' },
+      { fase: 'PRE', texto: 'Reel de convite', tipo: 'Video/Reel de convite' },
+      { fase: 'PRE', texto: 'Story de convite', tipo: 'Story' },
+      { fase: 'PRE', texto: 'Banner para site', tipo: 'Banner' },
+      { fase: 'PRE', texto: 'Email de convite', tipo: 'Texto/Email' },
+      { fase: 'INTRA', texto: 'Cobertura fotográfica', tipo: 'Fotografia' },
+      { fase: 'INTRA', texto: 'Gravação de vídeo', tipo: 'Vídeo' },
+      { fase: 'INTRA', texto: 'Stories ao vivo', tipo: 'Story ao vivo' },
+      { fase: 'INTRA', texto: 'Live stream', tipo: 'Live stream' },
+      { fase: 'POS', texto: 'Video highlight', tipo: 'Video Highlight' },
+      { fase: 'POS', texto: 'Reel de retrospectiva', tipo: 'Reel retrospectiva' },
+      { fase: 'POS', texto: 'Post de retrospectiva', tipo: 'Post retrospectiva' },
+    ],
+    'Conferência': [
+      { fase: 'PRE', texto: 'Arte de divulgação', tipo: 'Arte' },
+      { fase: 'PRE', texto: 'Reel de convite', tipo: 'Video/Reel de convite' },
+      { fase: 'PRE', texto: 'Stories de convite', tipo: 'Story' },
+      { fase: 'PRE', texto: 'Banner para site', tipo: 'Banner' },
+      { fase: 'PRE', texto: 'Email de convite', tipo: 'Texto/Email' },
+      { fase: 'PRE', texto: 'Comunicado via WhatsApp', tipo: 'Texto/Email' },
+      { fase: 'INTRA', texto: 'Cobertura fotográfica', tipo: 'Fotografia' },
+      { fase: 'INTRA', texto: 'Gravação completa', tipo: 'Vídeo' },
+      { fase: 'INTRA', texto: 'Stories ao vivo', tipo: 'Story ao vivo' },
+      { fase: 'INTRA', texto: 'Live stream principal', tipo: 'Live stream' },
+      { fase: 'INTRA', texto: 'Capturas para reels', tipo: 'Capturas/Reels' },
+      { fase: 'POS', texto: 'Video highlight 1', tipo: 'Video Highlight' },
+      { fase: 'POS', texto: 'Video highlight 2', tipo: 'Video Highlight' },
+      { fase: 'POS', texto: 'Reel de melhores momentos', tipo: 'Reel retrospectiva' },
+      { fase: 'POS', texto: 'Post de retrospectiva', tipo: 'Post retrospectiva' },
+      { fase: 'POS', texto: 'Relatório de métricas', tipo: 'Relatório de métricas' },
+    ],
+  }
+
+  const choice = await confirmDialogWithChoice('Selecione um template:', Object.keys(templates))
+  if (!choice || !_eopEventId) return
+
+  const items = templates[choice] || []
+  let added = 0
+  for (const item of items) {
+    try {
+      await api('/events/' + _eopEventId + '/checklist', {
+        method: 'POST',
+        body: JSON.stringify({ fase: item.fase, texto: item.texto, tipo_entregavel: item.tipo }),
+      })
+      added++
+    } catch (err) {
+      console.error('Erro ao adicionar item:', err)
+    }
+  }
+  if (added > 0) {
+    await reloadEopItems()
+    toast(`${added} itens adicionados do template.`, 'success')
+  }
+})
+
+// Helper for template choice dialog
+function confirmDialogWithChoice(message, choices) {
+  return new Promise(resolve => {
+    const dlg = document.createElement('dialog')
+    dlg.className = 'confirm-dialog'
+    dlg.innerHTML = `
+      <div class="confirm-body">
+        <h3>${escapeHtml(message)}</h3>
+        <div style="margin:16px 0;display:flex;flex-direction:column;gap:8px">
+          ${choices.map((c, i) => `<button type="button" class="btn-outline choice-btn" data-choice-idx="${i}" style="text-align:left;padding:10px;border-radius:var(--radius)">${escapeHtml(c)}</button>`).join('')}
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="btn-ghost" id="choiceCancelBtn">Cancelar</button>
+        </div>
+      </div>`
+    function done(val) { dlg.close(); dlg.remove(); resolve(val) }
+    dlg.querySelectorAll('.choice-btn').forEach(btn =>
+      btn.addEventListener('click', () => done(choices[+btn.dataset.choiceIdx]), { once: true })
+    )
+    dlg.querySelector('#choiceCancelBtn').addEventListener('click', () => done(null), { once: true })
+    dlg.addEventListener('cancel', () => resolve(null), { once: true })
+    document.body.appendChild(dlg)
+    dlg.showModal()
+  })
+}
 
 // Close panel
 function closeEventOpPanel() {
