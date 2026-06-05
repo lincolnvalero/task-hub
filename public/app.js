@@ -281,6 +281,12 @@ function showApp() {
 }
 
 /* ── Navigation ────────────────────────────────────────────────── */
+const VIEW_LABELS = {
+  dashboard:'Dashboard', tasks:'Tarefas', postagens:'Postagens',
+  campaigns:'Campanhas', calendar:'Calendário', agenda:'Agenda',
+  teams:'Equipes', users:'Usuários', reunioes:'Reuniões', briefings:'Briefings',
+  mapa:'Mapa', contentProjects:'Projetos de Conteúdo',
+}
 function navigate(view) {
   $$('.view').forEach(v => v.hidden = true)
   const el = $(`#${view}View`)
@@ -288,6 +294,9 @@ function navigate(view) {
   $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view))
   // Sync mobile bottom nav active state
   $$('.mbn-item[data-view]').forEach(btn => btn.classList.toggle('active', btn.dataset.view === view))
+  // Breadcrumb no header
+  const bc = $('#headerBreadcrumb')
+  if (bc) bc.textContent = VIEW_LABELS[view] || view
   if (view === 'dashboard') loadDashboard()
   if (view === 'tasks')     loadTasks()
   if (view === 'teams')     loadTeams()
@@ -551,6 +560,13 @@ async function loadTasks() {
     if (!state.campaigns.length) promises.push(api('/campaigns').then(c => { state.campaigns = Array.isArray(c) ? c : [] }).catch(() => {}))
     const [board] = await Promise.all(promises)
     state.allTasks = board ? Object.values(board).flat() : []
+    // Badge de contagem na sidebar
+    const badge = $('#navTaskCount')
+    if (badge) {
+      const active = state.allTasks.filter(t => t.status_atual !== 'CONCLUIDO' && !t.deleted_at)
+      badge.textContent = active.length || state.allTasks.length
+      badge.hidden = !state.allTasks.length
+    }
     applyFiltersAndRender()
     populateTeamFilter()
     populateUserFilter()
