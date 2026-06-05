@@ -379,6 +379,7 @@ body {
 .btn-danger-ghost:hover { background: var(--danger-dim); border-color: var(--danger); }
 .btn-danger-ghost svg { width: 15px; height: 15px; }
 .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+/* ── VIEW TOGGLE — tabs com texto (estilo cative-tasks) ─── */
 .view-toggle-group { display: flex; background: var(--surface-2); border-radius: 6px; padding: 3px; gap: 2px; }
 .view-toggle-btn {
   width: 34px; height: 28px; background: transparent;
@@ -389,6 +390,20 @@ body {
 .view-toggle-btn.active { background: var(--surface-3); color: var(--text); }
 .view-toggle-btn:hover:not(.active) { color: var(--text); }
 
+.view-toggle-tabs { display: flex; gap: 2px; }
+.vtab {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border: none; border-radius: 6px;
+  background: transparent; color: var(--text-muted);
+  font-size: .83rem; font-weight: 500; cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.vtab svg { flex-shrink: 0; }
+.vtab:hover { background: var(--surface-2); color: var(--text); }
+.vtab.active { background: var(--surface-2); color: var(--text); font-weight: 600; }
+.tasks-section-header { margin-bottom: 12px; }
+.tasks-section-header h2 { font-size: 1.5rem; font-weight: 700; }
+
 /* ── FILTER BAR ───────────────────────────────────── */
 .filter-bar {
   display: flex; align-items: center; gap: 12px;
@@ -396,13 +411,19 @@ body {
 }
 .filter-status-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .status-chip {
-  padding: 5px 12px; border-radius: 20px;
+  padding: 5px 14px; border-radius: 20px;
   border: 1px solid var(--border);
   background: transparent; color: var(--text-muted);
-  font-size: 0.8rem; transition: all 0.12s;
+  font-size: 0.82rem; font-weight: 500; transition: all 0.12s; cursor: pointer;
 }
-.status-chip:hover { border-color: var(--primary); color: var(--text); }
-.status-chip.active { background: var(--primary-dim); border-color: var(--primary); color: var(--primary); font-weight: 500; }
+.status-chip:hover { border-color: var(--text-muted); color: var(--text); }
+/* Active = dark fill como cative-tasks */
+.status-chip.active {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--surface);
+  font-weight: 600;
+}
 .filter-selects { display: flex; gap: 8px; flex-wrap: wrap; }
 .filter-select {
   padding: 5px 10px;
@@ -512,6 +533,7 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
 }
+/* ── DATA TABLE (genérico, usado em Teams, Users etc.) ─ */
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td {
   text-align: left; padding: 10px 14px;
@@ -525,21 +547,82 @@ body {
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tbody tr { cursor: pointer; transition: background 0.1s; }
 .data-table tbody tr:hover { background: var(--surface-2); }
+
+/* ── TASK LIST TABLE — visual cative-tasks ─────────── */
+.task-list-table {
+  width: 100%; border-collapse: collapse;
+  font-size: .875rem;
+}
+.task-list-table thead th {
+  padding: 8px 12px; text-align: left;
+  font-size: .75rem; font-weight: 600; color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+  background: transparent; white-space: nowrap;
+  user-select: none;
+}
+.task-list-table thead th.tlt-actions { width: 40px; }
+.task-list-table thead th.tlt-status  { width: 140px; }
+.task-list-table thead th.tlt-priority{ width: 120px; }
+.task-list-table thead th.tlt-project { width: 160px; }
+.task-list-table thead th.tlt-deadline{ width: 110px; }
+.task-list-table tbody tr {
+  cursor: pointer; border-bottom: 1px solid var(--border-subtle);
+  transition: background .1s;
+}
+.task-list-table tbody tr:last-child { border-bottom: none; }
+.task-list-table tbody tr:hover { background: var(--surface-2); }
+.task-list-table td { padding: 10px 12px; vertical-align: middle; }
+.tlt-title-cell { max-width: 0; }
+.tlt-task-name {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500; color: var(--text);
+}
+/* Status pill — rounded, colored */
+.status-pill {
+  display: inline-block; padding: 3px 10px; border-radius: 20px;
+  font-size: .8rem; font-weight: 500; white-space: nowrap;
+}
+/* Priority flag */
+.prio-flag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .82rem; font-weight: 500; white-space: nowrap;
+}
+.prio-none { color: var(--text-dim); }
+/* Project chip */
+.tlt-proj-chip {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: .78rem; font-weight: 500; white-space: nowrap;
+  background: color-mix(in srgb, var(--pc,#6b7280) 15%, transparent);
+  color: var(--pc, #6b7280);
+}
+.tlt-no-proj { color: var(--text-dim); font-size: .82rem; }
+/* Action buttons */
+.tlt-actions-cell { text-align: right; opacity: 0; transition: opacity .15s; }
+.task-list-table tbody tr:hover .tlt-actions-cell { opacity: 1; }
+.tlt-copy-btn {
+  background: none; border: none; padding: 3px;
+  color: var(--text-muted); cursor: pointer; border-radius: 4px;
+}
+.tlt-copy-btn:hover { background: var(--surface-3); color: var(--text); }
+.tlt-empty { padding: 2rem; text-align: center; color: var(--text-muted); }
+
+/* Sortable in task table */
 .sortable { cursor: pointer; }
 .sortable:hover { color: var(--text); }
 .sort-arrow::after { content: ' ↕'; opacity: 0.4; font-size: 0.7em; }
 .sort-asc .sort-arrow::after  { content: ' ↑'; opacity: 1; }
 .sort-desc .sort-arrow::after { content: ' ↓'; opacity: 1; }
 
+/* ── STATUS BADGE — usado em kanban cards e outros ──── */
 .status-badge {
   display: inline-block; padding: 2px 8px; border-radius: 4px;
   font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
 }
-.sb-BACKLOG      { background: rgba(107,114,128,0.15); color: #9ca3af; }
-.sb-A_FAZER      { background: var(--primary-dim); color: var(--primary); }
-.sb-EM_ANDAMENTO { background: rgba(139,92,246,0.15); color: #a78bfa; }
-.sb-REVISAO      { background: rgba(245,158,11,0.15); color: var(--warning); }
-.sb-CONCLUIDO    { background: rgba(34,197,94,0.15); color: var(--success); }
+.sb-BACKLOG      { background: rgba(107,114,128,0.15); color: #6b7280; }
+.sb-A_FAZER      { background: #dbeafe; color: #2563eb; }
+.sb-EM_ANDAMENTO { background: #ede9fe; color: #7c3aed; }
+.sb-REVISAO      { background: #fef3c7; color: #d97706; }
+.sb-CONCLUIDO    { background: #dcfce7; color: #16a34a; }
 
 .role-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; background: var(--surface-2); border: 1px solid var(--border); }
 .role-badge.ADMIN    { color: var(--warning); border-color: var(--warning); }

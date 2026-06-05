@@ -104,6 +104,31 @@ function priorityChip(p) {
 function statusBadge(s) {
   return `<span class="status-badge sb-${s}">${STATUS_LABELS[s]||s}</span>`
 }
+/* Pills para a Lista — visual cative-tasks */
+const STATUS_PILL_COLORS = {
+  BACKLOG:      { bg:'#f3f4f6', color:'#6b7280' },
+  A_FAZER:      { bg:'#dbeafe', color:'#2563eb' },
+  EM_ANDAMENTO: { bg:'#ede9fe', color:'#7c3aed' },
+  REVISAO:      { bg:'#fef3c7', color:'#d97706' },
+  CONCLUIDO:    { bg:'#dcfce7', color:'#16a34a' },
+}
+function statusPill(s) {
+  const { bg='#f3f4f6', color='#6b7280' } = STATUS_PILL_COLORS[s] || {}
+  const label = STATUS_LABELS[s] || s
+  return `<span class="status-pill" style="background:${bg};color:${color}">${label}</span>`
+}
+const PRIORITY_FLAG_COLORS = {
+  URGENTE: '#dc2626',
+  ALTA:    '#f97316',
+  MEDIA:   '#f59e0b',
+  BAIXA:   '#6b7280',
+}
+function priorityFlag(p) {
+  if (!p || p === 'NENHUMA') return '<span class="prio-flag prio-none">—</span>'
+  const color = PRIORITY_FLAG_COLORS[p] || '#6b7280'
+  const label = PRIORITY_LABELS[p] || p
+  return `<span class="prio-flag" style="color:${color}"><svg viewBox="0 0 24 24" fill="${color}" stroke="none" width="11" height="11"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15" stroke="${color}" stroke-width="2" stroke-linecap="round"/></svg>${label}</span>`
+}
 function canalChip(c) {
   if (!c) return ''
   const color = CANAL_COLORS[c] || '#6b7280'
@@ -766,21 +791,24 @@ function renderListView() {
   const hasFilters = Object.values(state.filters).some(v => v)
   tbody.innerHTML = page.length
     ? page.map(t => {
-        const assignee = t.assignments?.find(a => a.user)
-        const team     = t.assignments?.find(a => a.team)
-        const createdAt = t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}) : '—'
+        const campaign = t.campaign
+        const projHtml = campaign
+          ? `<span class="tlt-proj-chip" style="--pc:${campaign.cor||'#6b7280'}">${escapeHtml(campaign.nome)}</span>`
+          : '<span class="tlt-no-proj">—</span>'
         return `<tr data-id="${t.id}">
-          <td>${escapeHtml(t.titulo)}</td>
-          <td>${statusBadge(t.status)}</td>
-          <td>${priorityChip(t.prioridade)}</td>
-          <td>${t.canal ? canalChip(t.canal) : '—'}</td>
-          <td>${escapeHtml(assignee?.user?.nome||'—')}</td>
-          <td>${escapeHtml(team?.team?.nome||'—')}</td>
+          <td class="tlt-title-cell"><span class="tlt-task-name">${escapeHtml(t.titulo)}</span></td>
+          <td>${statusPill(t.status)}</td>
+          <td>${priorityFlag(t.prioridade)}</td>
+          <td>${projHtml}</td>
           <td>${deadlineChip(t.data_fim_planejado)}</td>
-          <td style="font-size:.78rem;color:var(--text-muted)">${createdAt}</td>
+          <td class="tlt-actions-cell">
+            <button class="tlt-copy-btn" title="Copiar título" onclick="event.stopPropagation();navigator.clipboard?.writeText('${escapeHtml(t.titulo).replace(/'/g,"\\'")}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </td>
         </tr>`
       }).join('')
-    : `<tr><td colspan="8" class="muted" style="text-align:center;padding:2rem">${hasFilters ? 'Nenhuma tarefa para estes filtros.' : 'Nenhuma tarefa encontrada.'}</td></tr>`
+    : `<tr><td colspan="6" class="tlt-empty">${hasFilters ? 'Nenhuma tarefa para estes filtros.' : 'Nenhuma tarefa encontrada.'}</td></tr>`
   $$('tr[data-id]',tbody).forEach(row => row.addEventListener('click', () => openPanel(row.dataset.id)))
   $$('.sortable').forEach(th => {
     th.classList.toggle('sort-asc',  th.dataset.sort===key && dir==='asc')
@@ -803,7 +831,7 @@ function setViewContainers(active) {
   $('#listViewWrap').hidden    = active !== 'list'
   $('#galleryViewWrap').hidden = active !== 'gallery'
   $('#timelineViewWrap').hidden = active !== 'timeline'
-  $$('.view-toggle-btn').forEach(b => b.classList.remove('active'))
+  $$('.vtab').forEach(b => b.classList.remove('active'))
   const btns = { kanban:'#btnViewKanban', list:'#btnViewList', gallery:'#btnViewGallery', timeline:'#btnViewTimeline' }
   if (btns[active]) $(btns[active]).classList.add('active')
 }

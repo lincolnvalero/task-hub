@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/styles.css?v=20260605b" />
+  <link rel="stylesheet" href="/styles.css?v=20260605c" />
 </head>
 <body>
 
@@ -204,27 +204,31 @@
 
         <!-- TASKS -->
         <section id="tasksView" class="view" hidden>
-          <div class="section-header">
+          <div class="section-header tasks-section-header">
             <h2>Tarefas</h2>
-            <div class="view-toggle-group">
-              <button id="btnViewKanban" class="view-toggle-btn active" title="Kanban">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="13" rx="1"/><rect x="17" y="3" width="5" height="9" rx="1"/></svg>
+            <div class="view-toggle-tabs">
+              <button id="btnViewKanban" class="vtab active" title="Kanban">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="13" rx="1"/><rect x="17" y="3" width="5" height="9" rx="1"/></svg>
+                Kanban
               </button>
-              <button id="btnViewList" class="view-toggle-btn" title="Lista">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              <button id="btnViewList" class="vtab" title="Lista">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Lista
               </button>
-              <button id="btnViewGallery" class="view-toggle-btn" title="Galeria">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              <button id="btnViewGallery" class="vtab" title="Galeria">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                Galeria
               </button>
-              <button id="btnViewTimeline" class="view-toggle-btn" title="Linha do tempo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><polyline points="8 8 3 12 8 16"/><line x1="9" y1="5" x2="9" y2="9"/><line x1="15" y1="5" x2="15" y2="19"/><line x1="9" y1="15" x2="9" y2="19"/></svg>
+              <button id="btnViewTimeline" class="vtab" title="Carga">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Carga
               </button>
             </div>
           </div>
 
           <div class="filter-bar">
             <div id="statusChips" class="filter-status-chips">
-              <button class="status-chip active" data-status="">Todos</button>
+              <button class="status-chip active" data-status="">Todas</button>
               <button class="status-chip" data-status="A_FAZER">A fazer</button>
               <button class="status-chip" data-status="EM_ANDAMENTO">Em andamento</button>
               <button class="status-chip" data-status="REVISAO">Revisão</button>
@@ -278,23 +282,19 @@
           <div id="kanbanBoard" class="kanban"></div>
 
           <div id="listViewWrap" hidden>
-            <div class="card">
-              <table class="data-table task-table">
-                <thead>
-                  <tr>
-                    <th class="sortable" data-sort="titulo">Título <span class="sort-arrow"></span></th>
-                    <th>Status</th>
-                    <th class="sortable" data-sort="prioridade">Prioridade <span class="sort-arrow"></span></th>
-                    <th>Canal</th>
-                    <th>Responsável</th>
-                    <th>Equipe</th>
-                    <th class="sortable" data-sort="data_fim_planejado">Prazo <span class="sort-arrow"></span></th>
-                    <th class="sortable" data-sort="created_at">Criado em <span class="sort-arrow"></span></th>
-                  </tr>
-                </thead>
-                <tbody id="taskTableBody"></tbody>
-              </table>
-            </div>
+            <table class="task-list-table">
+              <thead>
+                <tr>
+                  <th class="tlt-title sortable" data-sort="titulo">Tarefa <span class="sort-arrow"></span></th>
+                  <th class="tlt-status">Status <span class="sort-arrow"></span></th>
+                  <th class="tlt-priority sortable" data-sort="prioridade">Prioridade <span class="sort-arrow"></span></th>
+                  <th class="tlt-project">Projeto</th>
+                  <th class="tlt-deadline sortable" data-sort="data_fim_planejado">Prazo <span class="sort-arrow"></span></th>
+                  <th class="tlt-actions"></th>
+                </tr>
+              </thead>
+              <tbody id="taskTableBody"></tbody>
+            </table>
             <div id="listPagination" class="pagination-bar"></div>
           </div>
 
@@ -1330,6 +1330,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260605b"></script>
+  <script src="/app.js?v=20260605c"></script>
 </body>
 </html>
