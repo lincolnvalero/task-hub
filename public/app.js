@@ -1259,6 +1259,7 @@ $('#newTaskBtn').addEventListener('click', async () => {
   userPicker.setOptions(state.users.filter(u=>u.role!=='GUEST').map(u => ({ id:u.id, label:u.nome, sub:u.email })))
   teamPicker.reset(); userPicker.reset()
   populateCampaignSelect('#tCampaign', '')
+  populateContentProjectSelect('#tContentProject', '')
   $('#taskDialog').showModal()
 })
 $('#cancelTaskBtn').addEventListener('click', () => $('#taskDialog').close())
@@ -1290,6 +1291,7 @@ $('#taskForm').addEventListener('submit', async e => {
     data_fim_planejado:   $('#tPrazo').value||undefined,
     production_days:      isNaN(_prodDays) ? undefined : _prodDays,
     campaign_id:          $('#tCampaign').value || undefined,
+    content_project_id:   $('#tContentProject').value || undefined,
     team_ids:             teamIds,
     user_ids:             userPicker.getIds(),
   }
@@ -3801,15 +3803,22 @@ if ($('#notifBadge')) _notifBadgeObs.observe($('#notifBadge'), { childList: true
    Completamente independente da Agenda de Eventos.
    ══════════════════════════════════════════════════════════════════ */
 
+// Projetos de conteúdo em memória
+state.contentProjects = []
+
 // Filtros e estado da view
 const posState = {
-  canal:       '',    // filtro de plataforma
-  status:      '',    // filtro de status
-  campaignId:  '',    // filtro de campanha
-  userId:      '',    // filtro de responsável
-  weekRef:     null,  // segunda-feira da semana exibida (Date)
-  listView:    false, // true = lista, false = semana
+  canal:            '',    // filtro de plataforma
+  status:           '',    // filtro de status
+  campaignId:       '',    // filtro de campanha
+  userId:           '',    // filtro de responsável
+  contentProjectId: '',    // filtro de projeto de conteúdo
+  weekRef:          null,  // segunda-feira da semana exibida (Date)
+  listView:         false, // true = lista, false = semana
 }
+
+// Projeto de conteúdo aberto no painel
+let _currentCpId = null
 
 // Dia-da-semana abreviados (começando na segunda)
 const POST_WEEKDAYS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM']
@@ -3823,33 +3832,31 @@ function weekMonday(d) {
   return copy
 }
 
+const FREQ_LABELS = { DIARIO:'Diário', SEMANAL:'Semanal', QUINZENAL:'Quinzenal', MENSAL:'Mensal', IRREGULAR:'Irregular' }
+
 async function loadPostagens() {
-  // Carrega tarefas se ainda não carregadas
-  if (!state.allTasks.length) {
-    try {
-      const board = await api('/tasks/kanban')
-      state.allTasks = board ? Object.values(board).flat() : []
-    } catch (err) { toast(err.message, 'error') }
-  }
-  // Carrega campaigns para o filtro
-  if (!state.campaigns.length) {
-    try { state.campaigns = await api('/campaigns') } catch {}
-  }
-  // Carrega users para filtro de responsável
-  if (!state.users.length) {
-    try { state.users = await api('/users') } catch {}
-  }
+  // Carrega dados necessários em paralelo
+  const loads = []
+  if (!state.allTasks.length) loads.push(api('/tasks/kanban').then(b => { state.allTasks = b ? Object.values(b).flat() : [] }).catch(()=>{}))
+  if (!state.campaigns.length) loads.push(api('/campaigns').then(c => { state.campaigns = Array.isArray(c) ? c : [] }).catch(()=>{}))
+  if (!state.users.length) loads.push(api('/users').then(u => { state.users = Array.isArray(u) ? u : [] }).catch(()=>{}))
+  if (!(state.contentProjects||[]).length) loads.push(api('/content-projects').then(p => { state.contentProjects = Array.isArray(p) ? p : [] }).catch(()=>{}))
+  if (loads.length) await Promise.all(loads)
 
   // Inicializa semana na semana atual
   if (!posState.weekRef) posState.weekRef = weekMonday(new Date())
 
-  // Popula filtros
+  // Popula chips de projeto
+  renderContentProjectChips()
+
+  // Popula filtro de campanha
   populateCampaignSelect('#postCampaignFilter', posState.campaignId)
+
+  // Popula filtro de responsável
   const uf = $('#postUserFilter')
   if (uf && uf.options.length <= 1) {
     ;(state.users || []).forEach(u => {
-      const opt = document.createElement('option')
-      opt.value = u.id; opt.textContent = u.nome
+      const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.nome
       uf.appendChild(opt)
     })
   }
@@ -3857,14 +3864,49 @@ async function loadPostagens() {
   renderPostagens()
 }
 
+/** Renderiza os chips de projeto na barra de projetos */
+function renderContentProjectChips() {
+  const bar = $('#postProjectBar')
+  if (!bar) return
+
+  // Remove chips dinâmicos antigos (mantém "Todos" e o botão "Novo")
+  $$('.post-proj-chip.dynamic', bar).forEach(el => el.remove())
+
+  const insertBefore = $('#newContentProjectBtn')
+  ;(state.contentProjects || [])
+    .filter(p => p.ativo)
+    .forEach(p => {
+      const btn = document.createElement('button')
+      btn.className = 'post-proj-chip dynamic'
+      btn.dataset.projId = p.id
+      btn.innerHTML = `<span class="ppj-dot" style="background:${escapeHtml(p.cor||'#6366f1')}"></span>${escapeHtml(p.nome)}`
+      btn.title = `${FREQ_LABELS[p.frequencia]||p.frequencia}${p.descricao ? ' · ' + p.descricao : ''}`
+      if (posState.contentProjectId === p.id) btn.classList.add('active')
+      btn.addEventListener('click', () => {
+        posState.contentProjectId = p.id
+        $$('.post-proj-chip').forEach(c => c.classList.remove('active'))
+        btn.classList.add('active')
+        renderPostagens()
+      })
+      // Double-click → abrir painel do projeto
+      btn.addEventListener('dblclick', () => openCpPanel(p.id))
+      bar.insertBefore(btn, insertBefore)
+    })
+
+  // "Todos" chip
+  const todosChip = bar.querySelector('[data-proj-id=""]')
+  if (todosChip) todosChip.classList.toggle('active', !posState.contentProjectId)
+}
+
 function getPostTasks() {
   // Apenas tarefas com canal E data de publicação definidos
   let tasks = (state.allTasks || []).filter(t => t.canal && t.data_fim_planejado)
 
-  if (posState.canal)      tasks = tasks.filter(t => t.canal === posState.canal)
-  if (posState.status)     tasks = tasks.filter(t => t.status === posState.status)
-  if (posState.campaignId) tasks = tasks.filter(t => t.campaign_id === posState.campaignId)
-  if (posState.userId)     tasks = tasks.filter(t => (t.assignments||[]).some(a => a.user_id === posState.userId))
+  if (posState.canal)             tasks = tasks.filter(t => t.canal === posState.canal)
+  if (posState.status)            tasks = tasks.filter(t => t.status === posState.status)
+  if (posState.campaignId)        tasks = tasks.filter(t => t.campaign_id === posState.campaignId)
+  if (posState.contentProjectId)  tasks = tasks.filter(t => t.content_project_id === posState.contentProjectId)
+  if (posState.userId)            tasks = tasks.filter(t => (t.assignments||[]).some(a => a.user_id === posState.userId))
 
   return tasks
 }
@@ -3989,6 +4031,12 @@ function renderPostCard(t, mode = 'compact') {
     .map(a => { const u = (state.users||[]).find(u => u.id === a.user_id); return u ? u.nome : null })
     .filter(Boolean).slice(0, 2)
 
+  // Projeto de conteúdo vinculado
+  const proj = t.content_project_id ? (state.contentProjects||[]).find(p => p.id === t.content_project_id) : null
+  const projBadge = proj
+    ? `<span class="pcc-proj-badge" style="background:${proj.cor}22;color:${proj.cor};border-color:${proj.cor}55">${escapeHtml(proj.nome)}</span>`
+    : ''
+
   if (mode === 'compact') {
     return `<div class="post-card-compact${done?' done':''}${overdue?' overdue':''}" data-post-task="${t.id}"
         style="--canal-color:${color}" title="${escapeHtml(t.titulo)}">
@@ -3998,6 +4046,7 @@ function renderPostCard(t, mode = 'compact') {
         <div class="pcc-title">${escapeHtml(t.titulo)}</div>
         <div class="pcc-footer">
           <span class="pcc-status" style="background:${sty.bg};color:${sty.color}">${stLabel}</span>
+          ${projBadge}
           ${assignees.map(n => `<span class="pcc-avatar" style="background:${getAvatarColor(n)}" title="${escapeHtml(n)}">${getInitials(n)}</span>`).join('')}
         </div>
       </div>
@@ -4028,6 +4077,14 @@ function renderPostCard(t, mode = 'compact') {
 }
 
 /* ── Eventos de filtro / navegação ─────────────────────────────── */
+// Chip "Todos" os projetos
+$('[data-proj-id=""]')?.addEventListener('click', () => {
+  posState.contentProjectId = ''
+  $$('.post-proj-chip').forEach(c => c.classList.remove('active'))
+  $('[data-proj-id=""]')?.classList.add('active')
+  renderPostagens()
+})
+
 $$('.post-plat-chip').forEach(chip =>
   chip.addEventListener('click', () => {
     $$('.post-plat-chip').forEach(c => c.classList.remove('active'))
@@ -4065,6 +4122,186 @@ $('#postagensViewListBtn')?.addEventListener('click', () => {
   $('#postagensViewWeekBtn')?.classList.remove('active')
   renderPostagens()
 })
+
+/* ══════════════════════════════════════════════════════════════════
+   ── PAINEL DE PROJETO DE CONTEÚDO ───────────────────────────────
+   ══════════════════════════════════════════════════════════════════ */
+
+const CP_CANAIS_LIST = ['INSTAGRAM','YOUTUBE','TIKTOK','LINKEDIN','WHATSAPP','SITE','EMAIL','EVENTO','APRESENTACAO','OUTRO']
+
+async function openCpPanel(projectId) {
+  _currentCpId = projectId
+  const overlay = $('#cpPanelOverlay')
+  overlay.hidden = false
+  requestAnimationFrame(() => overlay.classList.add('is-open'))
+
+  try {
+    const p = await api('/content-projects/' + projectId)
+    populateCpPanel(p)
+  } catch (err) { toast(err.message, 'error') }
+}
+
+function populateCpPanel(p) {
+  const ed = isAdmin()
+
+  $('#cpPanelDot').style.background = p.cor || '#6366f1'
+  const nameEl = $('#cpPanelName')
+  if (nameEl) { nameEl.textContent = p.nome; nameEl.contentEditable = ed ? 'plaintext-only' : 'false' }
+
+  $('#cpPanelFreq').value   = p.frequencia || 'IRREGULAR'
+  $('#cpPanelAtivo').value  = String(p.ativo !== false)
+  const desc = $('#cpPanelDescricao'); if (desc) { desc.value = p.descricao || ''; desc.disabled = !ed }
+
+  // Stats
+  const s = p.stats || {}
+  const statsEl = $('#cpPanelStats')
+  if (statsEl) {
+    statsEl.innerHTML = [
+      { label:'Posts', val: s.total || 0 },
+      { label:'Concluídos', val: s.concluidos || 0 },
+      { label:'Este mês', val: s.este_mes || 0 },
+      { label:'Próximos', val: s.proximos || 0 },
+    ].map(x => `<div class="tdp-stat"><div class="tdp-stat-val">${x.val}</div><div class="tdp-stat-lbl">${x.label}</div></div>`).join('')
+  }
+
+  // Canal picker (checkboxes)
+  const canaisSel = Array.isArray(p.canais) ? p.canais : (typeof p.canais === 'string' ? JSON.parse(p.canais||'[]') : [])
+  const picker = $('#cpPanelCanais')
+  if (picker) {
+    picker.innerHTML = CP_CANAIS_LIST.map(c => {
+      const clr = CANAL_COLORS[c] || '#6b7280'
+      const lbl = CANAL_LABELS[c] || c
+      return `<label class="cp-canal-chip ${canaisSel.includes(c)?'active':''}" style="--cc:${clr}">
+        <input type="checkbox" value="${c}" ${canaisSel.includes(c)?'checked':''} ${ed?'':'disabled'} />
+        <span class="cp-canal-dot" style="background:${clr}"></span>${escapeHtml(lbl)}
+      </label>`
+    }).join('')
+    if (ed) {
+      $$('input[type="checkbox"]', picker).forEach(cb =>
+        cb.addEventListener('change', () => saveCpField(projectId, 'canais'))
+      )
+    }
+  }
+
+  // Disable fields for non-admins
+  ;['#cpPanelFreq','#cpPanelAtivo'].forEach(sel => { const el = $(sel); if (el) el.disabled = !ed })
+
+  // Tasks list
+  renderCpTaskList(p.tasks || [])
+  const countEl = $('#cpPanelTaskCount'); if (countEl) countEl.textContent = p.stats?.total || ''
+}
+
+function renderCpTaskList(tasks) {
+  const list = $('#cpPanelTaskList')
+  if (!list) return
+  if (!tasks.length) { list.innerHTML = '<p class="muted" style="font-size:.8rem">Nenhuma postagem ainda.</p>'; return }
+  const today = new Date().toISOString().slice(0, 10)
+  list.innerHTML = tasks.map(t => {
+    const dt = t.data_fim_planejado ? new Date(t.data_fim_planejado + 'T00:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'short' }) : '—'
+    const past = t.data_fim_planejado && t.data_fim_planejado < today && t.status !== 'CONCLUIDO'
+    const color = CANAL_COLORS[t.canal] || '#6b7280'
+    const sty   = STATUS_STYLE[t.status] || {}
+    return `<div class="tdp-task-row cp-task-row${past?' overdue':''}" data-task="${t.id}" style="--cc:${color}">
+      <div class="cp-task-canal-dot" style="background:${color}"></div>
+      <span class="tdp-task-title" title="${escapeHtml(t.titulo)}">${escapeHtml(t.titulo)}</span>
+      <span style="font-size:.7rem;color:var(--text-muted);margin-left:auto;flex-shrink:0">${dt}</span>
+      <span class="pcc-status" style="background:${sty.bg};color:${sty.color};font-size:.65rem;padding:1px 5px;border-radius:10px">${STATUS_LABELS[t.status]||t.status}</span>
+    </div>`
+  }).join('')
+  $$('[data-task]', list).forEach(el =>
+    el.addEventListener('click', () => { closeCpPanel(); navigate('tasks'); setTimeout(() => openPanel(el.dataset.task), 150) })
+  )
+}
+
+async function saveCpField(id, field) {
+  const payload = {}
+  if (field === 'nome') {
+    const val = $('#cpPanelName')?.textContent.trim(); if (!val) return; payload.nome = val
+  } else if (field === 'frequencia') {
+    payload.frequencia = $('#cpPanelFreq')?.value
+  } else if (field === 'ativo') {
+    payload.ativo = $('#cpPanelAtivo')?.value === 'true'
+  } else if (field === 'descricao') {
+    payload.descricao = $('#cpPanelDescricao')?.value.trim() || null
+  } else if (field === 'canais') {
+    const checks = $$('#cpPanelCanais input[type="checkbox"]:checked')
+    payload.canais = Array.from(checks).map(cb => cb.value)
+  }
+  try {
+    await api('/content-projects/' + id, { method:'PATCH', body: JSON.stringify(payload) })
+    // Atualiza localmente
+    const idx = (state.contentProjects||[]).findIndex(p => p.id === id)
+    if (idx > -1) Object.assign(state.contentProjects[idx], payload)
+    renderContentProjectChips()
+    toast('Salvo.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+}
+
+// Wiring dos campos do painel
+$('#cpPanelName')?.addEventListener('blur', () => { if (_currentCpId && isAdmin()) saveCpField(_currentCpId, 'nome') })
+$('#cpPanelFreq')?.addEventListener('change', () => { if (_currentCpId && isAdmin()) saveCpField(_currentCpId, 'frequencia') })
+$('#cpPanelAtivo')?.addEventListener('change', () => { if (_currentCpId && isAdmin()) saveCpField(_currentCpId, 'ativo') })
+$('#cpPanelDescricao')?.addEventListener('blur', () => { if (_currentCpId && isAdmin()) saveCpField(_currentCpId, 'descricao') })
+
+// "Nova postagem neste projeto" — pré-preenche o dialog de nova tarefa
+$('#cpPanelNewPost')?.addEventListener('click', () => {
+  const proj = (state.contentProjects||[]).find(p => p.id === _currentCpId)
+  if (!proj) return
+  closeCpPanel()
+  $('#newTaskBtn')?.click()
+  setTimeout(() => {
+    // Pré-seleciona o projeto no dialog
+    const sel = $('#tContentProject'); if (sel) sel.value = proj.id
+    // Pré-seleciona o primeiro canal do projeto
+    const canais = Array.isArray(proj.canais) ? proj.canais : []
+    if (canais.length) { const cSel = $('#tCanal'); if (cSel) cSel.value = canais[0] }
+  }, 100)
+})
+
+// Delete projeto
+$('#cpPanelDeleteBtn')?.addEventListener('click', async () => {
+  if (!_currentCpId) return
+  const proj = (state.contentProjects||[]).find(p => p.id === _currentCpId)
+  if (!await confirmDialog(`Excluir o projeto "${proj?.nome || ''}"? As tarefas vinculadas não serão excluídas.`)) return
+  try {
+    await api('/content-projects/' + _currentCpId, { method:'DELETE' })
+    state.contentProjects = (state.contentProjects||[]).filter(p => p.id !== _currentCpId)
+    renderContentProjectChips(); closeCpPanel()
+    toast('Projeto excluído.', 'success')
+  } catch (err) { toast(err.message, 'error') }
+})
+
+function closeCpPanel() {
+  const ov = $('#cpPanelOverlay')
+  if (!ov) return
+  ov.classList.remove('is-open')
+  setTimeout(() => { ov.hidden = true }, 300)
+  _currentCpId = null
+}
+$('#closeCpPanelBtn')?.addEventListener('click', closeCpPanel)
+$('#cpPanelBackdrop')?.addEventListener('click', closeCpPanel)
+
+// Novo projeto
+$('#newContentProjectBtn')?.addEventListener('click', async () => {
+  const nome = await promptInputDialog('Nome do novo projeto de conteúdo:', 'Ex: Devocional Diário, Rotina de Domingo…')
+  if (!nome) return
+  try {
+    const proj = await api('/content-projects', { method:'POST', body: JSON.stringify({ nome, cor: '#6366f1', frequencia: 'IRREGULAR' }) })
+    if (!state.contentProjects) state.contentProjects = []
+    state.contentProjects.push(proj)
+    renderContentProjectChips()
+    toast('Projeto criado! Clique duas vezes no chip para editar.', 'success')
+    openCpPanel(proj.id)
+  } catch (err) { toast(err.message, 'error') }
+})
+
+// Popula select de projeto na criação de tarefa
+function populateContentProjectSelect(selId, currentVal = '') {
+  const sel = $(selId); if (!sel) return
+  const projects = (state.contentProjects||[]).filter(p => p.ativo)
+  sel.innerHTML = `<option value="">— Nenhum —</option>` +
+    projects.map(p => `<option value="${p.id}" ${p.id === currentVal ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')
+}
 
 /* ══════════════════════════════════════════════════════════════════
    ── ENVIAR ATA DE REUNIÃO ────────────────────────────────────────

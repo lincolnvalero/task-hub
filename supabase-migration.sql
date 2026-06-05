@@ -248,3 +248,28 @@ CREATE TABLE IF NOT EXISTS meeting_minutes (
 ALTER TABLE meeting_minutes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "mm_all" ON meeting_minutes;
 CREATE POLICY "mm_all" ON meeting_minutes FOR ALL USING (true) WITH CHECK (true);
+
+-- 14. Projetos de Conteúdo (postagens rotineiras / séries — sem data de encerramento)
+-- Conceitualmente separados das Campanhas (que são event-based).
+-- Um post no kanban pode ter content_project_id OU campaign_id (ou nenhum).
+CREATE TABLE IF NOT EXISTS content_projects (
+  id          TEXT        PRIMARY KEY,
+  nome        TEXT        NOT NULL CHECK (char_length(nome) BETWEEN 2 AND 200),
+  descricao   TEXT,
+  cor         TEXT        NOT NULL DEFAULT '#6366f1',
+  canais      JSONB       NOT NULL DEFAULT '[]',  -- ex: ["INSTAGRAM","YOUTUBE"]
+  frequencia  TEXT        NOT NULL DEFAULT 'IRREGULAR'
+                          CHECK (frequencia IN ('DIARIO','SEMANAL','QUINZENAL','MENSAL','IRREGULAR')),
+  ativo       BOOLEAN     NOT NULL DEFAULT true,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_cp_ativo ON content_projects(ativo) WHERE deleted_at IS NULL;
+ALTER TABLE content_projects ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "cp_all" ON content_projects;
+CREATE POLICY "cp_all" ON content_projects FOR ALL USING (true) WITH CHECK (true);
+
+-- Vincula tasks a projetos de conteúdo
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS content_project_id TEXT REFERENCES content_projects(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_cp ON tasks(content_project_id);

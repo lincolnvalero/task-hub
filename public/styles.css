@@ -2774,3 +2774,99 @@ dialog select[multiple] { min-height: 100px; }
   padding: 48px 0;
   font-size: .9rem;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   PROJETOS DE CONTEÚDO
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Barra de chips de projetos */
+.post-project-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.post-proj-label {
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--text-muted);
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+.post-proj-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: .75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+  white-space: nowrap;
+}
+.post-proj-chip:hover { border-color: var(--primary); color: var(--text); }
+.post-proj-chip.active { border-color: var(--primary); background: var(--primary-dim); color: var(--primary); }
+.post-proj-new { border-style: dashed; }
+.ppj-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Badge no card de postagem */
+.pcc-proj-badge {
+  font-size: .58rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: var(--radius-pill);
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+/* Painel lateral do projeto */
+.cp-panel { }
+.cp-canal-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.cp-canal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: .75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.cp-canal-chip input { display: none; }
+.cp-canal-chip.active,
+.cp-canal-chip:has(input:checked) {
+  border-color: var(--cc, var(--primary));
+  background: color-mix(in srgb, var(--cc, var(--primary)) 15%, transparent);
+  color: var(--cc, var(--primary));
+}
+.cp-canal-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Task row no painel de projeto */
+.cp-task-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cp-task-canal-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

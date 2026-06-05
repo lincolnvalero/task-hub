@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/styles.css?v=20260529f" />
+  <link rel="stylesheet" href="/styles.css?v=20260529g" />
 </head>
 <body>
 
@@ -455,6 +455,19 @@
             </div>
           </div>
 
+          <!-- Filtro de Projetos de Conteúdo -->
+          <div class="post-project-bar" id="postProjectBar">
+            <span class="post-proj-label">Projetos:</span>
+            <button class="post-proj-chip active" data-proj-id="">
+              <span class="ppj-dot" style="background:var(--text-muted)"></span>Todos
+            </button>
+            <!-- chips dinâmicos inseridos por JS -->
+            <button id="newContentProjectBtn" class="post-proj-chip post-proj-new admin-only" title="Novo projeto de conteúdo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Novo projeto
+            </button>
+          </div>
+
           <!-- Filtro de plataformas -->
           <div class="post-platform-bar" id="postPlatformBar">
             <button class="post-plat-chip active" data-canal="">
@@ -684,6 +697,79 @@
       <span id="mbnNotifBadge" class="mbn-badge" hidden></span>
     </button>
   </nav>
+
+  <!-- CONTENT PROJECT PANEL -->
+  <div id="cpPanelOverlay" class="panel-overlay" hidden>
+    <div class="panel-backdrop" id="cpPanelBackdrop"></div>
+    <aside class="team-detail-panel cp-panel">
+      <div class="tdp-header">
+        <div id="cpPanelDot" class="tdp-color-dot"></div>
+        <h2 id="cpPanelName" class="tdp-name" contenteditable="plaintext-only" data-placeholder="Nome do projeto"></h2>
+        <button id="closeCpPanelBtn" class="icon-btn panel-close" title="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Stats row -->
+      <div id="cpPanelStats" class="tdp-stats-row"></div>
+
+      <div class="tdp-scroll">
+        <div class="tdp-section">
+          <div class="panel-fields">
+            <div class="pf-row">
+              <div class="pf-item">
+                <span class="pf-label">Frequência</span>
+                <select id="cpPanelFreq" class="pf-select">
+                  <option value="IRREGULAR">Irregular</option>
+                  <option value="DIARIO">Diário</option>
+                  <option value="SEMANAL">Semanal</option>
+                  <option value="QUINZENAL">Quinzenal</option>
+                  <option value="MENSAL">Mensal</option>
+                </select>
+              </div>
+              <div class="pf-item">
+                <span class="pf-label">Status</span>
+                <select id="cpPanelAtivo" class="pf-select">
+                  <option value="true">✅ Ativo</option>
+                  <option value="false">⏸ Inativo</option>
+                </select>
+              </div>
+            </div>
+            <div class="pf-row">
+              <div class="pf-item full">
+                <span class="pf-label">Canais</span>
+                <div id="cpPanelCanais" class="cp-canal-picker"></div>
+              </div>
+            </div>
+            <div class="pf-row">
+              <div class="pf-item full">
+                <span class="pf-label">Descrição</span>
+                <textarea id="cpPanelDescricao" class="pf-textarea" rows="2" placeholder="Descreva a finalidade deste projeto…"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tdp-section">
+          <div class="tdp-section-header">
+            <span class="section-label">Posts do projeto</span>
+            <span id="cpPanelTaskCount" class="count-badge"></span>
+          </div>
+          <button id="cpPanelNewPost" class="btn-primary btn-sm admin-only" style="margin-bottom:10px;width:100%">
+            + Nova postagem neste projeto
+          </button>
+          <div id="cpPanelTaskList" class="tdp-task-list"></div>
+        </div>
+      </div>
+
+      <div class="tdp-footer">
+        <button id="cpPanelDeleteBtn" class="btn-danger-ghost admin-only">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          Excluir projeto
+        </button>
+      </div>
+    </aside>
+  </div>
 
   <!-- TEAM DETAIL PANEL -->
   <div id="teamDetailOverlay" class="panel-overlay" hidden>
@@ -1040,6 +1126,9 @@
         <label>Campanha
           <select id="tCampaign"><option value="">— Nenhuma —</option></select>
         </label>
+        <label>Projeto de conteúdo
+          <select id="tContentProject"><option value="">— Nenhum —</option></select>
+        </label>
       </div>
       <label>Equipes <span class="req">*</span></label>
       <div class="chip-picker">
@@ -1238,6 +1327,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260529f"></script>
+  <script src="/app.js?v=20260529g"></script>
 </body>
 </html>
