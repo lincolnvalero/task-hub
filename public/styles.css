@@ -1,54 +1,68 @@
-/* ── DESIGN TOKENS ────────────────────────────────── */
-/* Tema CLARO (creme) — padrão. Tema escuro via [data-theme="dark"]. */
+/* ── DESIGN TOKENS ─────────────────────────────────────────────────
+   Baseado no CSS fonte do cative-tasks.vercel.app (oklch convertido)
+   Font: Geist Variable — mesma do cative-tasks
+   ──────────────────────────────────────────────────────────────── */
 :root {
-  --primary:        #E8743B;   /* accent laranja quente */
-  --primary-hover:  #D5632C;
-  --primary-dim:    rgba(232,116,59,0.12);
-  --accent:         #E8743B;
-  --bg:             #F9FAFB;    /* quase branco, igual cative-tasks */
-  --surface:        #FFFFFF;
-  --surface-2:      #F3F4F6;
-  --surface-3:      #E5E7EB;
-  --border:         #E5E7EB;
-  --border-subtle:  #F3F4F6;
-  --text:           #111827;    /* gray-900 */
-  --text-muted:     #6B7280;    /* gray-500 */
-  --text-dim:       #9CA3AF;    /* gray-400 */
+  /* oklch(0.205 0 0) = near-black #232323 — primary do cative-tasks */
+  --primary:        #18181b;
+  --primary-hover:  #09090b;
+  --primary-dim:    rgba(24,24,27,0.06);
+  --accent:         #f97316;   /* laranja só para prioridade/destaque */
+
+  /* oklch(1 0 0)=white | oklch(0.985 0 0)≈#f9fafb | oklch(0.97 0 0)≈#f4f4f5 */
+  --bg:             #ffffff;
+  --surface:        #ffffff;
+  --surface-2:      #f9fafb;   /* sidebar bg do cative-tasks */
+  --surface-3:      #f4f4f5;   /* muted / hover */
+
+  /* oklch(0.922 0 0)≈#e5e5e5 */
+  --border:         #e5e5e5;
+  --border-subtle:  #f0f0f0;
+
+  /* oklch(0.145 0 0)≈#1a1a1a — o "preto" do cative-tasks */
+  --text:           #1a1a1a;
+  /* oklch(0.556 0 0)≈#737373 */
+  --text-muted:     #737373;
+  /* oklch(0.708 0 0)≈#a3a3a3 */
+  --text-dim:       #a3a3a3;
+
   --success:        #16a34a;
   --warning:        #d97706;
   --danger:         #dc2626;
   --danger-dim:     rgba(220,38,38,0.10);
+
   --sidebar-w:      240px;
   --sidebar-collapsed-w: 72px;
+  /* oklch(0.625rem) = 10px — igual cative-tasks */
   --radius:         10px;
   --radius-lg:      16px;
   --radius-pill:    100px;
-  --shadow:         0 6px 24px rgba(120,100,70,0.10);
-  --shadow-sm:      0 2px 8px rgba(120,100,70,0.08);
-  --serif:          'Instrument Serif', Georgia, 'Times New Roman', serif;
+  /* sombra flat como Tailwind shadow-sm */
+  --shadow:         0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-sm:      0 1px 2px rgba(0,0,0,0.05);
 }
 
 :root[data-theme="dark"] {
-  --primary:        #F2854D;
-  --primary-hover:  #ff9560;
-  --primary-dim:    rgba(242,133,77,0.18);
-  --accent:         #F2854D;
-  /* fundo com tom quente (marrom/sépia escuro) — diferente do preto frio */
-  --bg:             #1a1410;
-  --surface:        #231c17;
-  --surface-2:      #2c2319;
-  --surface-3:      #362c21;
-  --border:         #4a3a2d;
-  --border-subtle:  #3a2e23;
-  --text:           #e2e4ee;
-  --text-muted:     #7b8194;
-  --text-dim:       #4a4f63;
+  /* Dark mode: oklch(0.145 0 0)=#0a0a0a bg, oklch(0.985 0 0)=#fafafa text */
+  --primary:        #e4e4e7;
+  --primary-hover:  #f4f4f5;
+  --primary-dim:    rgba(228,228,231,0.10);
+  --accent:         #f97316;
+  --bg:             #0a0a0a;
+  --surface:        #141414;
+  --surface-2:      #1c1c1c;
+  --surface-3:      #262626;
+  --border:         rgba(255,255,255,0.10);
+  --border-subtle:  rgba(255,255,255,0.06);
+  --text:           #fafafa;
+  --text-muted:     #a3a3a3;
+  --text-dim:       #525252;
   --success:        #22c55e;
   --warning:        #f59e0b;
   --danger:         #ef4444;
   --danger-dim:     rgba(239,68,68,0.12);
-  --shadow:         0 4px 24px rgba(0,0,0,0.45);
-  --shadow-sm:      0 2px 10px rgba(0,0,0,0.35);
+  --shadow:         0 4px 24px rgba(0,0,0,0.50);
+  --shadow-sm:      0 2px 8px rgba(0,0,0,0.35);
 }
 
 html { color-scheme: light dark; }
@@ -62,13 +76,15 @@ button { font-family: inherit; cursor: pointer; }
 input, select, textarea { font-family: inherit; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Geist Variable — mesma fonte do cative-tasks.vercel.app */
+  font-family: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  transition: background 0.3s ease, color 0.3s ease;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.25s, color 0.25s;
 }
 /* Serif só no login — seções usam Inter bold como cative-tasks */
 .login-header h1 {
@@ -183,7 +199,7 @@ body {
 .sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
-  background: var(--surface);
+  background: var(--surface-2);   /* oklch(0.985)≈#f9fafb — igual cative-tasks */
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -251,9 +267,10 @@ body {
   width: 100%;
   transition: background 0.12s, color 0.12s;
 }
-.nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
-.nav-item:hover { background: var(--surface-2); color: var(--text); }
-.nav-item.active { background: var(--primary-dim); color: var(--primary); }
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+.nav-item:hover { background: var(--surface-3); color: var(--text); }
+/* Active = cinza claro + texto escuro — igual cative-tasks (sem laranja) */
+.nav-item.active { background: var(--surface-3); color: var(--text); font-weight: 600; }
 .sidebar-footer { padding: 12px 8px; border-top: 1px solid var(--border-subtle); }
 .user-pill {
   display: flex; align-items: center; gap: 10px;
