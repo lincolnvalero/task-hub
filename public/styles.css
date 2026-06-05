@@ -1794,28 +1794,22 @@ dialog select[multiple] { min-height: 100px; }
 /* ── COMMAND PALETTE ────────────────────────────────── */
 .cmd-palette-dialog {
   position: fixed;
-  inset: 0;
-  width: 100%;
-  max-width: 100%;
-  max-height: 100%;
+  top: 52px;                       /* cola abaixo do header */
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(580px, calc(100vw - 32px));
+  z-index: 900;
   margin: 0;
   padding: 0;
   border: none;
   background: transparent;
-  overflow: visible;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 52px;   /* alinha rente ao header — sem espaço vazio */
+  /* quando hidden, oculto */
 }
-.cmd-palette-dialog::backdrop {
-  background: rgba(0,0,0,.15); /* backdrop quase invisível — não escurece a página */
-}
+.cmd-palette-dialog[hidden] { display: none !important; }
 .cmd-palette-wrap {
-  width: min(580px, calc(100vw - 32px));
   background: var(--surface);
-  border-radius: 0 0 12px 12px;  /* cantos arredondados só embaixo — flui do header */
-  box-shadow: 0 8px 32px rgba(0,0,0,.14);
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.12);
   border: 1px solid var(--border);
   border-top: none;
   overflow: hidden;

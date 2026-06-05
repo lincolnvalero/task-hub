@@ -3641,14 +3641,19 @@ async function briefingConvertDialogFull_handler(bId) {
    ══════════════════════════════════════════════════════════════════ */
 let _cmdSelectedIdx = -1
 
+function closeCmdPalette() {
+  const dlg = $('#cmdPaletteDialog')
+  if (dlg) dlg.hidden = true
+}
+
 const CMD_ACTIONS = [
-  { icon: '➕', title: 'Nova tarefa',      sub: 'Criar uma nova tarefa',           kbd: 'N', action: () => { $('#cmdPaletteDialog').close(); $('#newTaskBtn')?.click() } },
-  { icon: '📊', title: 'Dashboard',         sub: 'Ir para o Dashboard',              kbd: '1', action: () => { $('#cmdPaletteDialog').close(); navigate('dashboard') } },
-  { icon: '✅', title: 'Tarefas',           sub: 'Ver o quadro Kanban',              kbd: '2', action: () => { $('#cmdPaletteDialog').close(); navigate('tasks') } },
-  { icon: '📣', title: 'Campanhas',         sub: 'Gerenciar campanhas',              kbd: '3', action: () => { $('#cmdPaletteDialog').close(); navigate('campaigns') } },
-  { icon: '📅', title: 'Calendário',        sub: 'Ver o calendário de eventos',      kbd: '4', action: () => { $('#cmdPaletteDialog').close(); navigate('calendar') } },
-  { icon: '🗺️', title: 'Mapa',             sub: 'Mapa de eventos',                  kbd: '5', action: () => { $('#cmdPaletteDialog').close(); navigate('mapa') } },
-  { icon: '🌙', title: 'Alternar tema',     sub: 'Claro / Escuro',                   kbd: '',  action: () => { $('#cmdPaletteDialog').close(); toggleTheme() } },
+  { icon: '➕', title: 'Nova tarefa',      sub: 'Criar uma nova tarefa',           kbd: 'N', action: () => { closeCmdPalette(); $('#newTaskBtn')?.click() } },
+  { icon: '📊', title: 'Dashboard',         sub: 'Ir para o Dashboard',              kbd: '1', action: () => { closeCmdPalette(); navigate('dashboard') } },
+  { icon: '✅', title: 'Tarefas',           sub: 'Ver o quadro Kanban',              kbd: '2', action: () => { closeCmdPalette(); navigate('tasks') } },
+  { icon: '📣', title: 'Campanhas',         sub: 'Gerenciar campanhas',              kbd: '3', action: () => { closeCmdPalette(); navigate('campaigns') } },
+  { icon: '📅', title: 'Calendário',        sub: 'Ver o calendário de eventos',      kbd: '4', action: () => { closeCmdPalette(); navigate('calendar') } },
+  { icon: '🗺️', title: 'Mapa',             sub: 'Mapa de eventos',                  kbd: '5', action: () => { closeCmdPalette(); navigate('mapa') } },
+  { icon: '🌙', title: 'Alternar tema',     sub: 'Claro / Escuro',                   kbd: '',  action: () => { closeCmdPalette(); toggleTheme() } },
 ]
 
 function openCmdPalette() {
@@ -3658,7 +3663,7 @@ function openCmdPalette() {
   inp.value = ''
   _cmdSelectedIdx = -1
   renderCmdResults('')
-  dlg.showModal()
+  dlg.hidden = false
   requestAnimationFrame(() => inp.focus())
 }
 
@@ -3724,7 +3729,7 @@ function execCmdItem(el, actions) {
   if (el.dataset.cmdIdx !== undefined) {
     actions[+el.dataset.cmdIdx]?.action()
   } else if (el.dataset.taskId) {
-    $('#cmdPaletteDialog').close()
+    closeCmdPalette()
     navigate('tasks')
     setTimeout(() => openPanel(el.dataset.taskId), 200)
   }
@@ -3748,9 +3753,18 @@ $('#cmdInput')?.addEventListener('keydown', e => {
     const sel = items[_cmdSelectedIdx] || items[0]
     if (sel) execCmdItem(sel, CMD_ACTIONS.filter(a => !$('#cmdInput').value || a.title.toLowerCase().includes($('#cmdInput').value.toLowerCase())))
   } else if (e.key === 'Escape') {
-    $('#cmdPaletteDialog').close()
+    closeCmdPalette()
   }
 })
+
+// Fechar ao clicar fora do painel de busca
+document.addEventListener('click', e => {
+  const dlg = $('#cmdPaletteDialog')
+  if (!dlg || dlg.hidden) return
+  if (!dlg.contains(e.target) && e.target.id !== 'searchTriggerBtn' && !$('#searchTriggerBtn')?.contains(e.target)) {
+    closeCmdPalette()
+  }
+}, { capture: true })
 
 // Global keyboard shortcuts
 document.addEventListener('keydown', e => {
@@ -3764,8 +3778,8 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openCmdPalette(); return }
   if (e.key === 'n' && !e.ctrlKey && !e.metaKey && isAdmin()) { e.preventDefault(); $('#newTaskBtn')?.click(); return }
   if (e.key === 'Escape') {
-    if (!$('#cmdPaletteDialog')?.open) return
-    $('#cmdPaletteDialog').close()
+    const dlg = $('#cmdPaletteDialog')
+    if (dlg && !dlg.hidden) closeCmdPalette()
   }
 })
 

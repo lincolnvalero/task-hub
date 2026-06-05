@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/styles.css?v=20260605a" />
+  <link rel="stylesheet" href="/styles.css?v=20260605b" />
 </head>
 <body>
 
@@ -665,8 +665,8 @@
     </aside>
   </div>
 
-  <!-- COMMAND PALETTE (Ctrl+K) -->
-  <dialog id="cmdPaletteDialog" class="cmd-palette-dialog">
+  <!-- SEARCH PANEL (Ctrl+K) — div posicionado, sem modal nativo -->
+  <div id="cmdPaletteDialog" class="cmd-palette-dialog" hidden>
     <div class="cmd-palette-wrap">
       <div class="cmd-search-wrap">
         <svg class="cmd-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -675,7 +675,7 @@
       </div>
       <div id="cmdResults" class="cmd-results"></div>
     </div>
-  </dialog>
+  </div>
 
   <!-- MOBILE BOTTOM NAV -->
   <nav id="mobileBottomNav" class="mobile-bottom-nav" hidden>
@@ -1330,6 +1330,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="/app.js?v=20260605a"></script>
+  <script src="/app.js?v=20260605b"></script>
 </body>
 </html>
