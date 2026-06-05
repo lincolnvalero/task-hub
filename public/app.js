@@ -1650,8 +1650,11 @@ $('#userForm').addEventListener('submit', async e => {
   } catch (err) { $('#userFormError').textContent=err.message; $('#userFormError').hidden=false }
 })
 
-/* ── Global search ─────────────────────────────────────────────── */
-$('#globalSearch').addEventListener('input', e => {
+/* ── Search trigger button → opens command palette ──────────────── */
+$('#searchTriggerBtn')?.addEventListener('click', () => openCmdPalette())
+
+/* ── Global search (hidden input, mantido para compatibilidade) ── */
+$('#globalSearch')?.addEventListener('input', e => {
   clearTimeout(state.searchTO)
   const q = e.target.value.trim().toLowerCase()
   const dd = $('#searchDropdown')

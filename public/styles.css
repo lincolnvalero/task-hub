@@ -29,16 +29,17 @@
 }
 
 :root[data-theme="dark"] {
-  --primary:        #E8743B;
-  --primary-hover:  #f2854d;
-  --primary-dim:    rgba(232,116,59,0.16);
-  --accent:         #f2854d;
-  --bg:             #0d0f14;
-  --surface:        #161820;
-  --surface-2:      #1e2028;
-  --surface-3:      #252833;
-  --border:         #2d3040;
-  --border-subtle:  #23262f;
+  --primary:        #F2854D;
+  --primary-hover:  #ff9560;
+  --primary-dim:    rgba(242,133,77,0.18);
+  --accent:         #F2854D;
+  /* fundo com tom quente (marrom/sépia escuro) — diferente do preto frio */
+  --bg:             #1a1410;
+  --surface:        #231c17;
+  --surface-2:      #2c2319;
+  --surface-3:      #362c21;
+  --border:         #4a3a2d;
+  --border-subtle:  #3a2e23;
   --text:           #e2e4ee;
   --text-muted:     #7b8194;
   --text-dim:       #4a4f63;
@@ -195,9 +196,10 @@ body {
   border-bottom: 1px solid var(--border-subtle);
 }
 .brand-icon {
-  width: 32px; height: 32px;
-  background: linear-gradient(135deg, var(--primary), #F2A65A);
-  border-radius: 8px;
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, #E8743B 0%, #F2A65A 60%, #E8743B 100%);
+  box-shadow: 0 2px 8px rgba(232,116,59,.35);
+  border-radius: 10px;
   display: grid; place-items: center;
   font-size: 1rem; font-weight: 700; color: #fff;
   flex-shrink: 0;
@@ -259,16 +261,47 @@ body {
   align-items: center;
   gap: 12px;
   padding: 0 20px;
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
-  backdrop-filter: saturate(140%) blur(14px);
-  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
   border-bottom: 1px solid var(--border);
+  /* faixa laranja fina na borda superior — identidade Cative */
+  box-shadow: inset 0 2px 0 0 var(--primary);
   flex-shrink: 0;
   position: relative; z-index: 20;
 }
 .hamburger-btn { display: none; }
 .collapse-btn { display: grid; }
 @media (max-width: 900px) { .collapse-btn { display: none; } }
+/* Botão de busca unificado → abre command palette (Ctrl+K) */
+.search-trigger-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: .82rem;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+  min-width: 160px;
+  max-width: 280px;
+}
+.search-trigger-btn:hover { border-color: var(--primary); color: var(--text); background: var(--surface); }
+.stb-text { flex: 1; text-align: left; }
+.stb-kbd {
+  font-size: .68rem;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+@media (max-width: 600px) { .stb-text, .stb-kbd { display: none; } .search-trigger-btn { min-width: unset; padding: 6px; } }
+
 .search-container {
   flex: 1; max-width: 420px;
   position: relative;
