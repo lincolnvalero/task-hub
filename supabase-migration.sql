@@ -273,3 +273,29 @@ CREATE POLICY "cp_all" ON content_projects FOR ALL USING (true) WITH CHECK (true
 -- Vincula tasks a projetos de conteúdo
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS content_project_id TEXT REFERENCES content_projects(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_tasks_cp ON tasks(content_project_id);
+
+-- ─── NOTES ───────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS notes (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  titulo     TEXT NOT NULL DEFAULT '',
+  conteudo   TEXT NOT NULL DEFAULT '',
+  tags       TEXT[] NOT NULL DEFAULT '{}',
+  color      TEXT NOT NULL DEFAULT '#fef9c3',
+  source     TEXT NOT NULL DEFAULT 'manual'
+             CHECK (source IN ('manual','whatsapp','template')),
+  pinned     BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ
+);
+ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "notes_user_all" ON notes FOR ALL
+  USING (user_id = current_setting('app.user_id', true)::text);
+-- Index for fast user+tag queries
+CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_notes_tags ON notes USING GIN(tags);
+
+-- WhatsApp integration: add phone number field to users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_whatsapp ON users(whatsapp_number) WHERE whatsapp_number IS NOT NULL;

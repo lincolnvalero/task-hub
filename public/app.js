@@ -283,7 +283,7 @@ function showApp() {
 /* ── Navigation ────────────────────────────────────────────────── */
 const VIEW_LABELS = {
   dashboard:'Dashboard', tasks:'Tarefas', postagens:'Postagens',
-  campaigns:'Campanhas', calendar:'Calendário',
+  campaigns:'Campanhas', calendar:'Calendário', notas:'Notas',
   teams:'Equipes', users:'Usuários', reunioes:'Reuniões', briefings:'Briefings',
   mapa:'Mapa', contentProjects:'Projetos de Conteúdo',
 }
@@ -307,6 +307,7 @@ function navigate(view) {
   if (view === 'calendar')  loadCalendar()
   if (view === 'postagens')  loadPostagens()
   if (view === 'reunioes')   loadReunioes()
+  if (view === 'notas')      loadNotas()
 }
 
 /* ── Auth events ───────────────────────────────────────────────── */
@@ -3695,6 +3696,209 @@ async function briefingConvertDialogFull_handler(bId) {
    ── COMMAND PALETTE (Ctrl + K) ──────────────────────────────────
    ══════════════════════════════════════════════════════════════════ */
 let _cmdSelectedIdx = -1
+
+/* ══════════════════════════════════════════════════════════════════
+   ── NOTAS ────────────────────────────────────────────────────────
+   ══════════════════════════════════════════════════════════════════ */
+let _notesAll      = []   // cache de todas as notas
+let _notesTagFilter = null // tag filtrada atualmente
+let _currentNoteId  = null // nota sendo editada (null = nova)
+let _currentNoteColor = '#fef9c3'
+let _notePendingTags = []  // tags em edição no modal
+
+async function loadNotas() {
+  try {
+    const notes = await api('/notes')
+    _notesAll = Array.isArray(notes) ? notes : []
+    renderNotasView()
+  } catch (e) { toast('Erro ao carregar notas', 'error') }
+}
+
+function renderNotasView() {
+  // Filtra
+  let filtered = _notesAll
+  const q = ($('#notesSearch')?.value || '').toLowerCase()
+  if (q) filtered = filtered.filter(n =>
+    n.titulo?.toLowerCase().includes(q) || n.conteudo?.toLowerCase().includes(q) ||
+    n.tags?.some(t => t.toLowerCase().includes(q))
+  )
+  if (_notesTagFilter) filtered = filtered.filter(n => n.tags?.includes(_notesTagFilter))
+
+  // Contagem
+  const count = _notesAll.length
+  const countEl = $('#notasCount')
+  if (countEl) countEl.textContent = count + (count === 1 ? ' nota' : ' notas')
+
+  // Renderiza chips de tag
+  const allTags = [...new Set(_notesAll.flatMap(n => n.tags || []))].sort()
+  const tagFilter = $('#notesTagFilter')
+  if (tagFilter) {
+    tagFilter.innerHTML = allTags.map(t =>
+      `<button class="note-tag-chip${_notesTagFilter===t?' active':''}" data-tag="${escapeHtml(t)}">${escapeHtml(t)}</button>`
+    ).join('')
+    $$('.note-tag-chip', tagFilter).forEach(chip => chip.addEventListener('click', () => {
+      _notesTagFilter = _notesTagFilter === chip.dataset.tag ? null : chip.dataset.tag
+      renderNotasView()
+    }))
+  }
+
+  // Renderiza grid
+  const grid = $('#notesGrid')
+  if (!grid) return
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="notes-empty">
+      <p style="font-size:2rem;margin:0">📝</p>
+      <p>${_notesTagFilter || q ? 'Nenhuma nota encontrada.' : 'Nenhuma nota ainda.'}</p>
+    </div>`
+    return
+  }
+  grid.innerHTML = filtered.map(n => {
+    const timeAgo = relativeTime(n.created_at)
+    const sourceLabel = n.source === 'whatsapp'
+      ? `<span class="note-card-source whatsapp">📱 WhatsApp</span>`
+      : ''
+    const tags = (n.tags || []).map(t => `<span class="note-card-tag">${escapeHtml(t)}</span>`).join('')
+    const preview = (n.conteudo || '').trim().replace(/\n/g, ' ')
+    return `<div class="note-card${n.pinned?' pinned':''}" data-id="${n.id}" style="background:${escapeHtml(n.color||'#fef9c3')}">
+      ${sourceLabel}
+      ${n.titulo ? `<div class="note-card-title">${escapeHtml(n.titulo)}</div>` : ''}
+      <div class="note-card-body">${escapeHtml(preview)}</div>
+      ${tags ? `<div class="note-card-tags">${tags}</div>` : ''}
+      <div class="note-card-time">${timeAgo}</div>
+    </div>`
+  }).join('')
+  $$('.note-card', grid).forEach(card =>
+    card.addEventListener('click', () => openNoteDialog(card.dataset.id))
+  )
+}
+
+function relativeTime(iso) {
+  if (!iso) return ''
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 1)  return 'há menos de um minuto'
+  if (m < 60) return `há ${m} ${m===1?'minuto':'minutos'}`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `há ${h} ${h===1?'hora':'horas'}`
+  const d = Math.floor(h / 24)
+  return `há ${d} ${d===1?'dia':'dias'}`
+}
+
+function openNoteDialog(id) {
+  const dlg = $('#noteDialog')
+  if (!dlg) return
+  _currentNoteId = id || null
+  _notePendingTags = []
+
+  if (id) {
+    const note = _notesAll.find(n => n.id === id)
+    if (!note) return
+    $('#noteTitulo').value   = note.titulo || ''
+    $('#noteConteudo').value = note.conteudo || ''
+    _notePendingTags = [...(note.tags || [])]
+    _currentNoteColor = note.color || '#fef9c3'
+    $('#deleteNoteBtn').hidden = false
+  } else {
+    $('#noteTitulo').value   = ''
+    $('#noteConteudo').value = ''
+    _notePendingTags = []
+    _currentNoteColor = '#fef9c3'
+    $('#deleteNoteBtn').hidden = true
+  }
+  renderNoteColorBtns()
+  renderNoteTagPills()
+  dlg.showModal()
+  setTimeout(() => $('#noteConteudo').focus(), 50)
+}
+
+function renderNoteColorBtns() {
+  $$('.note-color-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.color === _currentNoteColor)
+  })
+}
+function renderNoteTagPills() {
+  const display = $('#noteTagsDisplay')
+  if (!display) return
+  display.innerHTML = _notePendingTags.map((t, i) =>
+    `<span class="note-tag-pill">${escapeHtml(t)}<button type="button" class="note-tag-pill-remove" data-idx="${i}">×</button></span>`
+  ).join('')
+  $$('.note-tag-pill-remove', display).forEach(btn =>
+    btn.addEventListener('click', () => {
+      _notePendingTags.splice(+btn.dataset.idx, 1)
+      renderNoteTagPills()
+    })
+  )
+}
+
+// Color picker
+$$('.note-color-btn').forEach(btn => btn.addEventListener('click', () => {
+  _currentNoteColor = btn.dataset.color
+  renderNoteColorBtns()
+}))
+
+// Tag input: Enter ou vírgula adiciona tag
+$('#noteTagInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault()
+    const val = e.target.value.trim().replace(/,/g, '').toLowerCase()
+    if (val && !_notePendingTags.includes(val)) {
+      _notePendingTags.push(val)
+      renderNoteTagPills()
+    }
+    e.target.value = ''
+  }
+})
+
+// Search input
+$('#notesSearch')?.addEventListener('input', () => renderNotasView())
+
+// Fechar dialog
+$('#closeNoteDialog')?.addEventListener('click', () => $('#noteDialog')?.close())
+
+// Save note
+$('#noteForm')?.addEventListener('submit', async e => {
+  e.preventDefault()
+  // flush pending tag input
+  const tagInp = $('#noteTagInput')
+  if (tagInp?.value.trim()) {
+    const v = tagInp.value.trim().toLowerCase().replace(/,/g,'')
+    if (v && !_notePendingTags.includes(v)) _notePendingTags.push(v)
+    tagInp.value = ''
+  }
+  const payload = {
+    titulo:  $('#noteTitulo').value.trim() || null,
+    conteudo: $('#noteConteudo').value.trim(),
+    tags:    _notePendingTags,
+    color:   _currentNoteColor,
+  }
+  if (!payload.conteudo && !payload.titulo) { toast('Escreva algo antes de salvar.', 'error'); return }
+  try {
+    if (_currentNoteId) {
+      await api('/notes/' + _currentNoteId, { method:'PATCH', body: JSON.stringify(payload) })
+      toast('Nota atualizada!')
+    } else {
+      await api('/notes', { method:'POST', body: JSON.stringify(payload) })
+      toast('Nota criada!')
+    }
+    $('#noteDialog')?.close()
+    await loadNotas()
+  } catch (err) { toast(err.message || 'Erro ao salvar nota', 'error') }
+})
+
+// Delete note
+$('#deleteNoteBtn')?.addEventListener('click', async () => {
+  if (!_currentNoteId) return
+  if (!confirm('Excluir esta nota?')) return
+  try {
+    await api('/notes/' + _currentNoteId, { method:'DELETE' })
+    toast('Nota excluída')
+    $('#noteDialog')?.close()
+    await loadNotas()
+  } catch (err) { toast(err.message || 'Erro ao excluir', 'error') }
+})
+
+// New note button
+$('#newNoteBtn')?.addEventListener('click', () => openNoteDialog(null))
 
 function closeCmdPalette() {
   const dlg = $('#cmdPaletteDialog')

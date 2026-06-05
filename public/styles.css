@@ -3025,3 +3025,99 @@ dialog select[multiple] { min-height: 100px; }
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* ── NOTAS ─────────────────────────────────────────────────────────── */
+.notes-count-label { font-size:.82rem; color:var(--text-muted); margin-top:2px; display:block; }
+.notes-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+.notes-search-wrap {
+  display:flex; align-items:center; gap:8px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:8px; padding:7px 12px; flex:1; min-width:200px; max-width:360px;
+}
+.notes-search-wrap svg { flex-shrink:0; color:var(--text-muted); }
+.notes-search-input { flex:1; border:none; background:transparent; color:var(--text); font-size:.875rem; outline:none; }
+.notes-search-input::placeholder { color:var(--text-dim); }
+
+.notes-tag-filter { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.note-tag-chip {
+  padding:4px 10px; border-radius:20px; border:1px solid var(--border);
+  background:transparent; color:var(--text-muted); font-size:.78rem; font-weight:500;
+  cursor:pointer; transition:all .12s;
+}
+.note-tag-chip:hover { border-color:var(--text-muted); color:var(--text); }
+.note-tag-chip.active { background:var(--text); border-color:var(--text); color:var(--surface); }
+
+.notes-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
+  gap:14px;
+}
+.note-card {
+  border-radius:12px; padding:16px; cursor:pointer;
+  border:1px solid rgba(0,0,0,0.06);
+  transition:transform .15s, box-shadow .15s;
+  position:relative; min-height:120px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.note-card:hover { transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,0.10); }
+.note-card-source {
+  position:absolute; top:10px; right:10px;
+  font-size:.68rem; color:var(--text-muted); opacity:.7;
+}
+.note-card-title { font-size:.9rem; font-weight:700; color:var(--text); line-height:1.3; }
+.note-card-body {
+  font-size:.82rem; color:var(--text-muted); line-height:1.55;
+  flex:1; overflow:hidden; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical;
+}
+.note-card-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:auto; }
+.note-card-tag {
+  font-size:.7rem; padding:2px 7px; border-radius:10px;
+  background:rgba(0,0,0,0.07); color:var(--text-muted);
+}
+.note-card-time { font-size:.7rem; color:var(--text-dim); margin-top:4px; }
+.note-card.pinned::before {
+  content:'📌'; position:absolute; top:-6px; left:12px; font-size:.85rem;
+}
+.notes-empty { grid-column:1/-1; text-align:center; padding:48px 0; color:var(--text-muted); }
+
+/* Modal de nota */
+.note-dialog {
+  position:fixed; inset:0; width:100%; max-width:100%; max-height:100%;
+  margin:0; padding:0; border:none; background:transparent; overflow:visible;
+  display:flex; align-items:flex-start; justify-content:center; padding-top:60px;
+}
+.note-dialog::backdrop { background:rgba(0,0,0,.18); }
+.note-form {
+  width:min(580px, calc(100vw - 32px));
+  background:var(--surface); border-radius:12px;
+  box-shadow:0 8px 40px rgba(0,0,0,.14); border:1px solid var(--border);
+  display:flex; flex-direction:column; gap:0; overflow:hidden;
+}
+.note-form-header { display:flex; align-items:center; gap:8px; padding:14px 16px 10px; border-bottom:1px solid var(--border-subtle); }
+.note-title-input { flex:1; border:none; background:transparent; font-size:1rem; font-weight:700; color:var(--text); outline:none; }
+.note-title-input::placeholder { color:var(--text-dim); font-weight:400; }
+.note-body-input { flex:1; border:none; background:transparent; resize:none; font-size:.875rem; color:var(--text); outline:none; padding:12px 16px; line-height:1.6; font-family:inherit; }
+.note-tags-row, .note-color-row { display:flex; align-items:center; gap:8px; padding:8px 16px; border-top:1px solid var(--border-subtle); flex-wrap:wrap; }
+.note-tags-label { font-size:.75rem; font-weight:600; color:var(--text-muted); white-space:nowrap; }
+.note-tags-display { display:flex; gap:4px; flex-wrap:wrap; }
+.note-tag-pill {
+  display:inline-flex; align-items:center; gap:3px;
+  padding:2px 8px; border-radius:10px; font-size:.72rem;
+  background:var(--surface-3); color:var(--text); cursor:default;
+}
+.note-tag-pill-remove { border:none; background:none; cursor:pointer; color:var(--text-muted); padding:0; font-size:.8rem; line-height:1; }
+.note-tag-input { border:none; background:transparent; font-size:.78rem; color:var(--text); outline:none; width:120px; }
+.note-tag-input::placeholder { color:var(--text-dim); }
+.note-colors { display:flex; gap:6px; }
+.note-color-btn {
+  width:22px; height:22px; border-radius:50%; border:2px solid transparent; cursor:pointer;
+  transition:transform .1s; flex-shrink:0;
+}
+.note-color-btn:hover { transform:scale(1.15); }
+.note-color-btn.active { border-color:var(--text); transform:scale(1.15); }
+.note-form-footer { display:flex; align-items:center; justify-content:flex-end; gap:8px; padding:10px 16px; border-top:1px solid var(--border-subtle); }
+.note-delete-btn { color:var(--danger) !important; }
+.note-save-btn { padding:7px 20px; }
+
+/* WhatsApp source badge */
+.note-card-source.whatsapp { color:#25D366; opacity:1; font-weight:600; }

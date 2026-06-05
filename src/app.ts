@@ -20,6 +20,8 @@ import { eventChecklistRoutes } from './infra/http/controllers/event-checklist.c
 import { meetingAIRoutes } from './infra/http/controllers/meeting-ai.controller'
 import { eventCoverRoutes } from './infra/http/controllers/event-cover.controller'
 import { contentProjectsRoutes } from './infra/http/controllers/content-projects.controller'
+import { notesRoutes } from './infra/http/controllers/notes.controller'
+import { whatsappWebhookRoutes } from './infra/http/controllers/whatsapp-webhook.controller'
 
 export const app = Fastify({ logger: true, pluginTimeout: 30000 })
 
@@ -66,6 +68,8 @@ export async function setupApp() {
   await app.register(meetingAIRoutes)
   await app.register(eventCoverRoutes)
   await app.register(contentProjectsRoutes)
+  await app.register(notesRoutes)
+  await app.register(whatsappWebhookRoutes)
 
   app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }))
 

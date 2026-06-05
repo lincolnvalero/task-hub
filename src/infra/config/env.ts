@@ -9,6 +9,10 @@ const envSchema = z.object({
   ALLOWED_ORIGINS:    z.string().default('http://localhost:3000'),
   ANTHROPIC_API_KEY:       z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  WHATSAPP_WEBHOOK_TOKEN:   z.string().optional(),
+  EVOLUTION_API_URL:        z.string().url().optional(),
+  EVOLUTION_API_KEY:        z.string().optional(),
+  EVOLUTION_INSTANCE:       z.string().optional(),
 })
 
 const parsed = envSchema.safeParse(process.env)
