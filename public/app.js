@@ -283,7 +283,7 @@ function showApp() {
 /* ── Navigation ────────────────────────────────────────────────── */
 const VIEW_LABELS = {
   dashboard:'Dashboard', tasks:'Tarefas', postagens:'Postagens',
-  campaigns:'Campanhas', calendar:'Calendário', agenda:'Agenda',
+  campaigns:'Campanhas', calendar:'Calendário',
   teams:'Equipes', users:'Usuários', reunioes:'Reuniões', briefings:'Briefings',
   mapa:'Mapa', contentProjects:'Projetos de Conteúdo',
 }
@@ -303,8 +303,8 @@ function navigate(view) {
   if (view === 'users')     loadUsers()
   if (view === 'briefings') loadBriefings()
   if (view === 'campaigns') loadCampaigns()
+  if (view === 'agenda') view = 'calendar'   // redirect legado
   if (view === 'calendar')  loadCalendar()
-  if (view === 'agenda')     loadAgenda()
   if (view === 'postagens')  loadPostagens()
   if (view === 'reunioes')   loadReunioes()
 }
@@ -2895,8 +2895,19 @@ $('#agendaToDate')?.addEventListener('change', e => {
   renderAgendaList()
 })
 
-// New event button
-$('#agendaNewEventBtn')?.addEventListener('click', () => openEventDialog())
+// Toggle Mês / Lista dentro do Calendário unificado
+let _calSubView = 'month'
+function setCalSubView(v) {
+  _calSubView = v
+  $('#calMonthWrap').hidden = (v !== 'month')
+  $('#calListWrap').hidden  = (v !== 'list')
+  $('#calViewMonth')?.classList.toggle('active', v === 'month')
+  $('#calViewList')?.classList.toggle('active',  v === 'list')
+  if (v === 'list') loadAgenda()
+  if (v === 'month') loadCalendar()
+}
+$('#calViewMonth')?.addEventListener('click', () => setCalSubView('month'))
+$('#calViewList')?.addEventListener('click',  () => setCalSubView('list'))
 
 /* ── Reuniões (Feature 3: Meeting Transcript AI) ────────────────────── */
 function loadReunioes() {
@@ -3691,13 +3702,13 @@ function closeCmdPalette() {
 }
 
 const CMD_ACTIONS = [
-  { icon: '➕', title: 'Nova tarefa',      sub: 'Criar uma nova tarefa',           kbd: 'N', action: () => { closeCmdPalette(); $('#newTaskBtn')?.click() } },
-  { icon: '📊', title: 'Dashboard',         sub: 'Ir para o Dashboard',              kbd: '1', action: () => { closeCmdPalette(); navigate('dashboard') } },
-  { icon: '✅', title: 'Tarefas',           sub: 'Ver o quadro Kanban',              kbd: '2', action: () => { closeCmdPalette(); navigate('tasks') } },
-  { icon: '📣', title: 'Campanhas',         sub: 'Gerenciar campanhas',              kbd: '3', action: () => { closeCmdPalette(); navigate('campaigns') } },
-  { icon: '📅', title: 'Calendário',        sub: 'Ver o calendário de eventos',      kbd: '4', action: () => { closeCmdPalette(); navigate('calendar') } },
-  { icon: '🗺️', title: 'Mapa',             sub: 'Mapa de eventos',                  kbd: '5', action: () => { closeCmdPalette(); navigate('mapa') } },
-  { icon: '🌙', title: 'Alternar tema',     sub: 'Claro / Escuro',                   kbd: '',  action: () => { closeCmdPalette(); toggleTheme() } },
+  { icon: '➕', title: 'Nova tarefa',      sub: 'Criar uma nova tarefa',                kbd: 'N', action: () => { closeCmdPalette(); $('#newTaskBtn')?.click() } },
+  { icon: '📊', title: 'Dashboard',         sub: 'Ir para o Dashboard',                 kbd: '1', action: () => { closeCmdPalette(); navigate('dashboard') } },
+  { icon: '✅', title: 'Tarefas',           sub: 'Ver quadro de tarefas',               kbd: '2', action: () => { closeCmdPalette(); navigate('tasks') } },
+  { icon: '📣', title: 'Campanhas',         sub: 'Gerenciar campanhas',                 kbd: '3', action: () => { closeCmdPalette(); navigate('campaigns') } },
+  { icon: '📅', title: 'Calendário',        sub: 'Grid mensal de eventos',              kbd: '4', action: () => { closeCmdPalette(); navigate('calendar'); setCalSubView('month') } },
+  { icon: '📋', title: 'Lista de eventos',  sub: 'Agenda cronológica de eventos',       kbd: '5', action: () => { closeCmdPalette(); navigate('calendar'); setCalSubView('list') } },
+  { icon: '🌙', title: 'Alternar tema',     sub: 'Claro / Escuro',                      kbd: '',  action: () => { closeCmdPalette(); toggleTheme() } },
 ]
 
 function openCmdPalette() {
