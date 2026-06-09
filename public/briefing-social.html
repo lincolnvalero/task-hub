@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Briefing para Posts de Redes Sociais — IAP SP Comunicação</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:      #18181b;
+      --primary-dim:  rgba(24,24,27,0.07);
+      --accent:       #7c3aed;
+      --accent-dim:   rgba(124,58,237,0.10);
+      --bg:           #f8f7f5;
+      --surface:      #ffffff;
+      --surface-2:    #f4f3f1;
+      --border:       #e5e3df;
+      --text:         #1a1917;
+      --text-muted:   #706b63;
+      --text-dim:     #a8a09a;
+      --success:      #16a34a;
+      --danger:       #dc2626;
+      --radius:       8px;
+      --radius-lg:    14px;
+      --shadow:       0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.05);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      padding: 0 0 80px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      background: #4c1d95;
+      color: #fff;
+      padding: 40px 24px 36px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: clamp(1.5rem, 4vw, 2.1rem);
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+    .hero p {
+      color: rgba(255,255,255,0.65);
+      font-size: 0.9rem;
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ── Info banner ── */
+    .info-banner {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 24px;
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .info-item svg { color: var(--accent); flex-shrink: 0; }
+    .info-item strong { color: var(--text); }
+
+    /* ── Main ── */
+    .main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 32px 20px 0;
+    }
+
+    /* ── Instruction card ── */
+    .instruction-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+    .instruction-card strong { color: var(--text); }
+
+    /* ── Section card ── */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 28px 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    @media (max-width: 480px) {
+      .section-card { padding: 20px 16px; }
+    }
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-heading-icon {
+      width: 26px; height: 26px;
+      background: var(--primary-dim);
+      border-radius: 6px;
+      display: grid; place-items: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Post number badge ── */
+    .post-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+    .post-num {
+      width: 24px; height: 24px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      display: grid; place-items: center;
+      flex-shrink: 0;
+    }
+    .post-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+
+    /* ── Form elements ── */
+    .form-row { margin-bottom: 18px; }
+    .form-row:last-child { margin-bottom: 0; }
+    .form-row.two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 540px) {
+      .form-row.two-col { grid-template-columns: 1fr; }
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    label .required { color: var(--danger); margin-left: 2px; }
+    label .optional {
+      font-weight: 400;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      margin-left: 4px;
+    }
+    .label-hint {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 2px;
+      margin-bottom: 7px;
+      font-style: italic;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.875rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+      background: var(--surface);
+    }
+    input::placeholder, textarea::placeholder { color: var(--text-dim); font-style: italic; }
+    textarea { resize: vertical; min-height: 90px; }
+
+    /* ── Checkbox/radio groups ── */
+    .options-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .opt-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 14px;
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+      user-select: none;
+    }
+    .opt-label:hover { border-color: var(--accent); background: var(--surface); }
+    .opt-label input[type="radio"],
+    .opt-label input[type="checkbox"] {
+      width: 15px; height: 15px; min-width: 15px;
+      accent-color: var(--accent);
+      margin: 0;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    /* ── Divider between posts ── */
+    .post-divider { border: none; border-top: 1px dashed var(--border); margin: 22px 0; }
+
+    /* ── LGPD ── */
+    .lgpd-card {
+      background: rgba(124,58,237,0.04);
+      border: 1px solid rgba(124,58,237,0.2);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+    .lgpd-check-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .lgpd-check-wrap input[type="checkbox"] {
+      width: 17px; height: 17px; min-width: 17px;
+      accent-color: var(--accent);
+      margin-top: 2px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .lgpd-text { font-size: 0.83rem; color: var(--text); line-height: 1.55; }
+    .lgpd-text strong { font-weight: 600; }
+    .lgpd-caption {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+      line-height: 1.5;
+      padding-left: 27px;
+    }
+
+    /* ── Submit ── */
+    .submit-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .btn-submit {
+      width: 100%;
+      background: #4c1d95;
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: -0.01em;
+    }
+    .btn-submit:hover:not(:disabled) { opacity: 0.85; }
+    .btn-submit:active:not(:disabled) { transform: scale(0.99); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Feedback ── */
+    .feedback {
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 16px;
+      line-height: 1.45;
+    }
+    .feedback.show { display: flex; }
+    .feedback-error {
+      background: rgba(220,38,38,0.07);
+      border: 1px solid rgba(220,38,38,0.25);
+      color: #b91c1c;
+    }
+    .feedback svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Success ── */
+    .success-screen { display: none; text-align: center; padding: 48px 20px; }
+    .success-screen.show { display: block; }
+    .success-icon {
+      width: 72px; height: 72px;
+      background: rgba(22,163,74,0.1);
+      border: 1px solid rgba(22,163,74,0.3);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      margin: 0 auto 20px;
+    }
+    .success-screen h2 { font-size: 1.4rem; font-weight: 700; color: var(--success); margin-bottom: 8px; }
+    .success-screen p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 28px; max-width: 420px; margin-left: auto; margin-right: auto; }
+    .btn-new {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 10px 24px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s;
+    }
+    .btn-new:hover { border-color: var(--accent); }
+
+    /* ── Footer ── */
+    .page-footer {
+      text-align: center;
+      padding: 32px 20px 0;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+    .page-footer a { color: var(--text-muted); text-decoration: underline; }
+    .page-footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+      Comunicação IAP SP
+    </div>
+    <h1>Briefing para Posts de Redes Sociais</h1>
+    <p>Preencha este formulário para solicitar a criação de posts, artes de divulgação, conteúdos institucionais e campanhas para redes sociais.</p>
+  </div>
+
+  <!-- Info strip -->
+  <div class="info-banner">
+    <div class="info-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1.5"/></svg>
+      <span>Prazo mínimo: <strong>2 meses</strong> de antecedência</span>
+    </div>
+    <div class="info-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+      <span>Inclui <strong>4 criativos</strong> + 4 legendas</span>
+    </div>
+    <div class="info-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><circle cx="8" cy="8" r="6"/><path d="M8 5v3"/><circle cx="8" cy="11" r="0.5" fill="currentColor"/></svg>
+      <span>NÃO inclui <strong>vídeos ou reels</strong></span>
+    </div>
+  </div>
+
+  <div id="successScreen" class="success-screen">
+    <div class="success-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="32" height="32">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <h2>Briefing enviado com sucesso!</h2>
+    <p>Nossa equipe de comunicação recebeu sua solicitação. Entraremos em contato em breve para alinhar os detalhes da produção.</p>
+    <button class="btn-new" id="newBriefingBtn">Enviar outro briefing</button>
+  </div>
+
+  <div id="formWrap">
+    <div class="main">
+
+      <!-- Instruction card -->
+      <div class="instruction-card">
+        <strong>📌 Sobre este briefing:</strong> Este modelo é destinado à solicitação de posts estáticos para redes sociais — artes de divulgação, conteúdos informativos e campanhas. Para vídeos, utilize o
+        <a href="/briefing-video.html" style="color:var(--accent)">briefing de vídeo</a>.<br><br>
+        A entrega padrão inclui <strong>4 criativos (posts) + 4 legendas</strong>. Quanto mais completo o briefing, melhor o resultado e mais rápido o processo.
+      </div>
+
+      <!-- IDENTIFICAÇÃO -->
+      <div class="section-card">
+        <div class="section-heading">
+          <div class="section-heading-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+          </div>
+          Identificação do solicitante
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="fNome">Nome completo <span class="required">*</span></label>
+            <input type="text" id="fNome" placeholder="Seu nome" maxlength="200" autocomplete="name" />
+          </div>
+          <div>
+            <label for="fEmail">E-mail <span class="required">*</span></label>
+            <input type="email" id="fEmail" placeholder="seu@email.com" maxlength="200" autocomplete="email" />
+          </div>
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="fNomeEvento">Nome do evento / campanha <span class="required">*</span></label>
+            <input type="text" id="fNomeEvento" placeholder="Ex: Conexão Promessa — Mulheres" maxlength="200" />
+          </div>
+          <div>
+            <label for="fDataEvento">Data prevista do evento</label>
+            <input type="date" id="fDataEvento" />
+          </div>
+        </div>
+      </div>
+
+      <!-- OS 4 POSTS -->
+      <div class="section-card">
+        <div class="section-heading">
+          <div class="section-heading-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+          </div>
+          Planejamento dos 4 posts
+        </div>
+
+        <!-- Post 1 -->
+        <div class="post-label">
+          <div class="post-num">1</div>
+          <span class="post-title">Post 1</span>
+        </div>
+        <div class="form-row">
+          <label for="fPost1">Qual o tema e objetivo do post 1? <span class="required">*</span></label>
+          <span class="label-hint">Ex: Tema: Convite oficial para o evento. Objetivo: Divulgar data, horário e local do evento e incentivar a participação.</span>
+          <textarea id="fPost1" placeholder="Descreva o tema e o objetivo deste post..." minlength="5" maxlength="800"></textarea>
+        </div>
+
+        <hr class="post-divider" />
+
+        <!-- Post 2 -->
+        <div class="post-label">
+          <div class="post-num">2</div>
+          <span class="post-title">Post 2</span>
+        </div>
+        <div class="form-row">
+          <label for="fPost2">Qual o tema e objetivo do post 2? <span class="required">*</span></label>
+          <span class="label-hint">Ex: Tema: Faltam 7 dias. Objetivo: Gerar expectativa e lembrar o público da proximidade do evento.</span>
+          <textarea id="fPost2" placeholder="Descreva o tema e o objetivo deste post..." maxlength="800"></textarea>
+        </div>
+
+        <hr class="post-divider" />
+
+        <!-- Post 3 -->
+        <div class="post-label">
+          <div class="post-num">3</div>
+          <span class="post-title">Post 3</span>
+        </div>
+        <div class="form-row">
+          <label for="fPost3">Qual o tema e objetivo do post 3? <span class="required">*</span></label>
+          <span class="label-hint">Ex: Tema: Conheça a palestrante. Objetivo: Apresentar a convidada e gerar conexão com o público.</span>
+          <textarea id="fPost3" placeholder="Descreva o tema e o objetivo deste post..." maxlength="800"></textarea>
+        </div>
+
+        <hr class="post-divider" />
+
+        <!-- Post 4 -->
+        <div class="post-label">
+          <div class="post-num">4</div>
+          <span class="post-title">Post 4</span>
+        </div>
+        <div class="form-row">
+          <label for="fPost4">Qual o tema e objetivo do post 4? <span class="required">*</span></label>
+          <span class="label-hint">Ex: Tema: É hoje! Objetivo: Reforçar o horário e incentivar a participação presencial ou online.</span>
+          <textarea id="fPost4" placeholder="Descreva o tema e o objetivo deste post..." maxlength="800"></textarea>
+        </div>
+      </div>
+
+      <!-- CONTEXTO E IDENTIDADE -->
+      <div class="section-card">
+        <div class="section-heading">
+          <div class="section-heading-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><circle cx="8" cy="8" r="6"/><path d="M8 5v2M6 7h4"/></svg>
+          </div>
+          Contexto e identidade
+        </div>
+
+        <div class="form-row">
+          <label for="fReferencias">Tem alguma referência? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "Gostei desse estilo de arte:" (inserir link ou descrever). Ou: "Algo semelhante ao evento do ano passado."</span>
+          <textarea id="fReferencias" placeholder="Links, descrição de estilo, imagens de referência..." maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fRedesSociais">Quais são as suas redes sociais? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: Instagram: @conexaopromessa / YouTube: Conexão Promessa</span>
+          <textarea id="fRedesSociais" rows="3" placeholder="Instagram, YouTube, TikTok, etc." maxlength="500"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fPublicoAlvo">Quem é o seu público-alvo? <span class="required">*</span></label>
+          <span class="label-hint">Ex: "Mulheres cristãs entre 18 e 60 anos." ou "Jovens e líderes das igrejas locais."</span>
+          <textarea id="fPublicoAlvo" rows="3" placeholder="Descreva o perfil do público que será impactado..." maxlength="500"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fHashtags">Alguma hashtag que não pode faltar? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: #ConexãoPromessa #MulheresDaPromessa #MissãoGlobal</span>
+          <input type="text" id="fHashtags" placeholder="Separe as hashtags por espaço ou vírgula..." maxlength="500" />
+        </div>
+
+        <div class="form-row">
+          <label for="fChamada">Alguma chamada específica que gostariam de usar? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "Você é a resposta da oração de alguém." ou "Comunicação que impulsiona a missão."</span>
+          <input type="text" id="fChamada" placeholder="Frase ou chamada principal do evento..." maxlength="300" />
+        </div>
+      </div>
+
+      <!-- FORMATO E TEMPLATE -->
+      <div class="section-card">
+        <div class="section-heading">
+          <div class="section-heading-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><rect x="1" y="2" width="14" height="11" rx="2"/><path d="M5 13v1M11 13v1M4 15h8"/></svg>
+          </div>
+          Formato e template visual
+        </div>
+
+        <div class="form-row">
+          <label>Quais formatos você precisa? <span class="optional">(selecione todos que se aplicam)</span></label>
+          <div class="options-group">
+            <label class="opt-label">
+              <input type="checkbox" name="formato" value="feed" /><span>Feed</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="formato" value="story" /><span>Story</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="formato" value="thumbnail" /><span>Thumbnail</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="formato" value="carrossel" /><span>Carrossel</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="formato" value="reels_cover" /><span>Capa de Reels</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="fTemplate">Tem algum template já pronto que queira usar? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "Gostaria de usar o mesmo padrão visual do evento anterior." ou "Pode seguir o padrão institucional da Convenção."</span>
+          <textarea id="fTemplate" rows="3" placeholder="Descreva o template ou padrão visual desejado..." maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fInfoAdicional">Mais alguma informação adicional? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "O evento terá transmissão ao vivo no YouTube." ou "Precisamos incluir espaço para logo do ministério."</span>
+          <textarea id="fInfoAdicional" rows="3" placeholder="Informações complementares relevantes para a criação..." maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fObservacoes">Observações ou instruções adicionais <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "O evento será realizado em parceria com outro ministério."</span>
+          <textarea id="fObservacoes" rows="3" placeholder="Qualquer instrução adicional para a execução..." maxlength="2000"></textarea>
+        </div>
+      </div>
+
+    </div><!-- /.main -->
+
+    <!-- LGPD + Submit -->
+    <div class="submit-wrap" style="margin-top:20px;">
+
+      <div id="feedbackError" class="feedback feedback-error">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="feedbackErrorText">Ocorreu um erro. Tente novamente.</span>
+      </div>
+
+      <div class="lgpd-card">
+        <label class="lgpd-check-wrap" for="fLgpd">
+          <input type="checkbox" id="fLgpd" />
+          <span class="lgpd-text">
+            <strong>Consentimento de uso de dados (LGPD)</strong><br>
+            Autorizo o uso dos meus dados pessoais (nome e e-mail) exclusivamente para processamento desta solicitação de briefing pela equipe de comunicação IAP SP, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).
+          </span>
+        </label>
+        <p class="lgpd-caption">
+          Seus dados não serão compartilhados com terceiros e serão utilizados somente para fins internos de gestão de demandas. Você pode solicitar a exclusão a qualquer momento.
+        </p>
+      </div>
+
+      <button type="button" class="btn-submit" id="submitBtn">
+        Enviar briefing de posts →
+      </button>
+    </div>
+
+    <div class="page-footer">
+      Equipe de Comunicação — IAP Regional SP &nbsp;·&nbsp;
+      <a href="/briefing.html">Outros tipos de briefing</a>
+    </div>
+  </div><!-- /#formWrap -->
+
+  <script>
+    const submitBtn  = document.getElementById('submitBtn')
+    const errBox     = document.getElementById('feedbackError')
+    const errText    = document.getElementById('feedbackErrorText')
+    const successDiv = document.getElementById('successScreen')
+    const formWrap   = document.getElementById('formWrap')
+    const newBtn     = document.getElementById('newBriefingBtn')
+
+    function showError(msg) {
+      errText.textContent = msg
+      errBox.classList.add('show')
+      errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+    function hideError() { errBox.classList.remove('show') }
+
+    function getChecked(name) {
+      return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(el => el.value)
+    }
+
+    submitBtn.addEventListener('click', async () => {
+      hideError()
+
+      const nome        = document.getElementById('fNome').value.trim()
+      const email       = document.getElementById('fEmail').value.trim()
+      const nomeEvento  = document.getElementById('fNomeEvento').value.trim()
+      const dataEvento  = document.getElementById('fDataEvento').value || undefined
+      const post1       = document.getElementById('fPost1').value.trim()
+      const post2       = document.getElementById('fPost2').value.trim()
+      const post3       = document.getElementById('fPost3').value.trim()
+      const post4       = document.getElementById('fPost4').value.trim()
+      const publicoAlvo = document.getElementById('fPublicoAlvo').value.trim()
+      const consent     = document.getElementById('fLgpd').checked
+
+      // Validations
+      if (!nome || nome.length < 2)        { showError('Informe seu nome completo.'); document.getElementById('fNome').focus(); return }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError('Informe um e-mail válido.'); document.getElementById('fEmail').focus(); return }
+      if (!nomeEvento)                     { showError('Informe o nome do evento ou campanha.'); document.getElementById('fNomeEvento').focus(); return }
+      if (!post1 || post1.length < 5)      { showError('Preencha o tema e objetivo do Post 1.'); document.getElementById('fPost1').focus(); return }
+      if (!post2)                          { showError('Preencha o tema e objetivo do Post 2.'); document.getElementById('fPost2').focus(); return }
+      if (!post3)                          { showError('Preencha o tema e objetivo do Post 3.'); document.getElementById('fPost3').focus(); return }
+      if (!post4)                          { showError('Preencha o tema e objetivo do Post 4.'); document.getElementById('fPost4').focus(); return }
+      if (!publicoAlvo)                    { showError('Informe o público-alvo.'); document.getElementById('fPublicoAlvo').focus(); return }
+      if (!consent)                        { showError('É necessário aceitar a política de dados para enviar o briefing.'); document.getElementById('fLgpd').focus(); return }
+
+      const campos_extras = {
+        nome_evento:    nomeEvento,
+        post1:          post1,
+        post2:          post2,
+        post3:          post3,
+        post4:          post4,
+        referencias:    document.getElementById('fReferencias').value.trim(),
+        redes_sociais:  document.getElementById('fRedesSociais').value.trim(),
+        publico_alvo:   publicoAlvo,
+        hashtags:       document.getElementById('fHashtags').value.trim(),
+        chamada:        document.getElementById('fChamada').value.trim(),
+        formatos:       getChecked('formato'),
+        template:       document.getElementById('fTemplate').value.trim(),
+        info_adicional: document.getElementById('fInfoAdicional').value.trim(),
+        observacoes:    document.getElementById('fObservacoes').value.trim(),
+      }
+
+      // Remove empty/empty-array fields
+      Object.keys(campos_extras).forEach(k => {
+        if (campos_extras[k] === '' || (Array.isArray(campos_extras[k]) && campos_extras[k].length === 0)) delete campos_extras[k]
+      })
+
+      const payload = {
+        nome,
+        email,
+        tipo:               'Briefing para Posts de Redes Sociais',
+        tipo_briefing:      'redes_sociais',
+        nome_evento:        nomeEvento,
+        descricao:          `Post 1: ${post1}\nPost 2: ${post2}\nPost 3: ${post3}\nPost 4: ${post4}`.slice(0, 3000),
+        data_evento:        dataEvento,
+        consentimento_lgpd: true,
+        campos_extras,
+      }
+
+      submitBtn.disabled    = true
+      submitBtn.textContent = 'Enviando...'
+
+      try {
+        const res  = await fetch('/briefing', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload),
+        })
+        const json = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          const msg = json?.error?.formErrors?.[0]
+            || (Array.isArray(json?.error) ? json.error[0] : null)
+            || (typeof json?.error === 'string' ? json.error : null)
+            || 'Erro ao enviar o briefing. Tente novamente.'
+          showError(msg)
+          return
+        }
+
+        formWrap.hidden = true
+        successDiv.classList.add('show')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+
+      } catch {
+        showError('Falha de conexão. Verifique sua internet e tente novamente.')
+      } finally {
+        submitBtn.disabled    = false
+        submitBtn.textContent = 'Enviar briefing de posts →'
+      }
+    })
+
+    newBtn.addEventListener('click', () => {
+      document.querySelectorAll('input, textarea, select').forEach(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = false
+        else el.value = ''
+      })
+      formWrap.hidden = false
+      successDiv.classList.remove('show')
+      hideError()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  </script>
+</body>
+</html>

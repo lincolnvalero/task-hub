@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Briefing para Edição de Vídeo — IAP SP Comunicação</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary:      #18181b;
+      --primary-dim:  rgba(24,24,27,0.07);
+      --accent:       #2563eb;
+      --accent-dim:   rgba(37,99,235,0.10);
+      --bg:           #f8f7f5;
+      --surface:      #ffffff;
+      --surface-2:    #f4f3f1;
+      --border:       #e5e3df;
+      --text:         #1a1917;
+      --text-muted:   #706b63;
+      --text-dim:     #a8a09a;
+      --success:      #16a34a;
+      --danger:       #dc2626;
+      --radius:       8px;
+      --radius-lg:    14px;
+      --shadow:       0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.05);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      padding: 0 0 80px;
+    }
+
+    /* ── Hero header ── */
+    .hero {
+      background: var(--primary);
+      color: #fff;
+      padding: 40px 24px 36px;
+      text-align: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: clamp(1.5rem, 4vw, 2.1rem);
+      font-weight: 700;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+    .hero p {
+      color: rgba(255,255,255,0.65);
+      font-size: 0.9rem;
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ── Info banner ── */
+    .info-banner {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 24px;
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .info-item svg { color: var(--accent); flex-shrink: 0; }
+    .info-item strong { color: var(--text); }
+
+    /* ── Main layout ── */
+    .main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 32px 20px 0;
+    }
+
+    /* ── Instruction card ── */
+    .instruction-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+    .instruction-card strong { color: var(--text); }
+    .instruction-card ul {
+      padding-left: 18px;
+      margin-top: 8px;
+    }
+    .instruction-card li { margin-bottom: 3px; }
+
+    /* ── Section card ── */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 28px 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    @media (max-width: 480px) {
+      .section-card { padding: 20px 16px; }
+    }
+    .section-heading {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-heading-icon {
+      width: 26px; height: 26px;
+      background: var(--primary-dim);
+      border-radius: 6px;
+      display: grid; place-items: center;
+      flex-shrink: 0;
+    }
+
+    /* ── Form elements ── */
+    .form-row { margin-bottom: 18px; }
+    .form-row:last-child { margin-bottom: 0; }
+    .form-row.two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 540px) {
+      .form-row.two-col { grid-template-columns: 1fr; }
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    label .required { color: var(--danger); margin-left: 2px; }
+    label .optional {
+      font-weight: 400;
+      color: var(--text-dim);
+      font-size: 0.75rem;
+      margin-left: 4px;
+    }
+    .label-hint {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 2px;
+      margin-bottom: 7px;
+      font-style: italic;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.875rem;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+      background: var(--surface);
+    }
+    input::placeholder, textarea::placeholder { color: var(--text-dim); font-style: italic; }
+    textarea { resize: vertical; min-height: 90px; }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a8a09a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+      cursor: pointer;
+    }
+
+    /* ── Radio / Checkbox groups ── */
+    .options-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .opt-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 14px;
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+      user-select: none;
+    }
+    .opt-label:hover { border-color: var(--accent); background: var(--surface); }
+    .opt-label input[type="radio"],
+    .opt-label input[type="checkbox"] {
+      width: 15px; height: 15px; min-width: 15px;
+      accent-color: var(--accent);
+      margin: 0;
+      cursor: pointer;
+      padding: 0;
+    }
+    .opt-label input:checked ~ span { color: var(--accent); }
+
+    /* ── LGPD ── */
+    .lgpd-card {
+      background: rgba(37,99,235,0.04);
+      border: 1px solid rgba(37,99,235,0.2);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      margin-bottom: 24px;
+    }
+    .lgpd-check-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .lgpd-check-wrap input[type="checkbox"] {
+      width: 17px; height: 17px; min-width: 17px;
+      accent-color: var(--accent);
+      margin-top: 2px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .lgpd-text { font-size: 0.83rem; color: var(--text); line-height: 1.55; }
+    .lgpd-text strong { font-weight: 600; }
+    .lgpd-caption {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+      line-height: 1.5;
+      padding-left: 27px;
+    }
+
+    /* ── Submit ── */
+    .submit-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .btn-submit {
+      width: 100%;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: -0.01em;
+    }
+    .btn-submit:hover:not(:disabled) { opacity: 0.85; }
+    .btn-submit:active:not(:disabled) { transform: scale(0.99); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Feedback ── */
+    .feedback {
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 16px;
+      line-height: 1.45;
+    }
+    .feedback.show { display: flex; }
+    .feedback-error {
+      background: rgba(220,38,38,0.07);
+      border: 1px solid rgba(220,38,38,0.25);
+      color: #b91c1c;
+    }
+    .feedback svg { flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Success screen ── */
+    .success-screen { display: none; text-align: center; padding: 48px 20px; }
+    .success-screen.show { display: block; }
+    .success-icon {
+      width: 72px; height: 72px;
+      background: rgba(22,163,74,0.1);
+      border: 1px solid rgba(22,163,74,0.3);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      margin: 0 auto 20px;
+    }
+    .success-screen h2 { font-size: 1.4rem; font-weight: 700; color: var(--success); margin-bottom: 8px; }
+    .success-screen p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 28px; max-width: 420px; margin-left: auto; margin-right: auto; }
+    .btn-new {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 10px 24px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s;
+    }
+    .btn-new:hover { border-color: var(--accent); }
+
+    /* ── Footer ── */
+    .page-footer {
+      text-align: center;
+      padding: 32px 20px 0;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+    }
+    .page-footer a { color: var(--text-muted); text-decoration: underline; }
+    .page-footer a:hover { color: var(--text); }
+
+    /* ── Error field state ── */
+    input.field-error, textarea.field-error, select.field-error {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 3px rgba(220,38,38,0.08);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><polygon points="5,2 13,8 5,14"/></svg>
+      Comunicação IAP SP
+    </div>
+    <h1>Briefing para Edição de Vídeo</h1>
+    <p>Preencha este formulário para solicitar a produção e edição de vídeos — reels, chamadas para eventos, teasers, conteúdos institucionais e mais.</p>
+  </div>
+
+  <!-- Info strip -->
+  <div class="info-banner">
+    <div class="info-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1.5"/></svg>
+      <span>Prazo mínimo: <strong>2 meses</strong> de antecedência</span>
+    </div>
+    <div class="info-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M2 2h12v10H2z"/><path d="M6 12v2M10 12v2M5 14h6"/></svg>
+      <span>Exclusivo para <strong>vídeos</strong> (não posts estáticos)</span>
+    </div>
+    <div class="info-item">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M8 2v4M8 10v4M2 8h4M10 8h4" stroke-linecap="round"/></svg>
+      <span>Campos em branco = <strong>a combinar</strong></span>
+    </div>
+  </div>
+
+  <div id="successScreen" class="success-screen">
+    <div class="success-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="32" height="32">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <h2>Briefing enviado com sucesso!</h2>
+    <p>Nossa equipe de comunicação recebeu sua solicitação. Entraremos em contato em breve para alinhar os detalhes e próximos passos.</p>
+    <button class="btn-new" id="newBriefingBtn">Enviar outro briefing</button>
+  </div>
+
+  <div id="formWrap">
+    <div class="main">
+
+      <!-- Instruction card -->
+      <div class="instruction-card">
+        <strong>📌 Sobre este briefing:</strong> Utilize-o para solicitar vídeos de divulgação, reels, chamadas para eventos, teasers e conteúdos institucionais.
+        Quanto mais completo, melhor será o resultado final e mais rápido será o processo.<br><br>
+        <strong>Envie também</strong> (após preencher): vídeos originais, fotos, referências e materiais complementares — nossa equipe fornecerá um link de envio após análise do briefing.
+      </div>
+
+      <!-- IDENTIFICAÇÃO -->
+      <div class="section-card">
+        <div class="section-heading">
+          <div class="section-heading-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+          </div>
+          Identificação do solicitante
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="fNome">Nome completo <span class="required">*</span></label>
+            <input type="text" id="fNome" placeholder="Seu nome" maxlength="200" autocomplete="name" />
+          </div>
+          <div>
+            <label for="fEmail">E-mail <span class="required">*</span></label>
+            <input type="email" id="fEmail" placeholder="seu@email.com" maxlength="200" autocomplete="email" />
+          </div>
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="fNomeEvento">Nome do evento / campanha <span class="required">*</span></label>
+            <input type="text" id="fNomeEvento" placeholder="Ex: Conferência Regional de Jovens" maxlength="200" />
+          </div>
+          <div>
+            <label for="fDataEvento">Data prevista do evento</label>
+            <input type="date" id="fDataEvento" />
+          </div>
+        </div>
+      </div>
+
+      <!-- SOBRE O VÍDEO -->
+      <div class="section-card">
+        <div class="section-heading">
+          <div class="section-heading-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><polygon points="3,2 13,8 3,14"/></svg>
+          </div>
+          Sobre o vídeo
+        </div>
+
+        <div class="form-row">
+          <label for="fIdeia">Qual seria a ideia para a sua edição? <span class="required">*</span></label>
+          <span class="label-hint">Ex: "Vídeo de divulgação para conferência regional." ou "Reel dinâmico convidando os jovens para o evento."</span>
+          <textarea id="fIdeia" placeholder="Descreva brevemente a ideia do vídeo..." minlength="10" maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fObjetivo">Que objetivo você busca com essa edição? <span class="required">*</span></label>
+          <span class="label-hint">Ex: "Gerar expectativa para o evento." ou "Divulgar a programação e aumentar o alcance nas redes sociais."</span>
+          <textarea id="fObjetivo" placeholder="Descreva o objetivo principal..." maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fReferencias">Quais são as referências para o vídeo? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: link do YouTube, "gostaria de algo mais emocional e cinematográfico", etc.</span>
+          <textarea id="fReferencias" placeholder="Cole links ou descreva o estilo desejado..." maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fRoteiro">Possui um texto para o vídeo ou roteiro? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "Quero que o vídeo comece com a frase: 'Existe uma geração sendo chamada para a missão.'" ou "Ainda não temos roteiro definido."</span>
+          <textarea id="fRoteiro" placeholder="Insira o roteiro ou texto aqui, ou deixe em branco se ainda não tiver..." maxlength="3000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label>Será necessária uma locução? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Narração em off no vídeo</span>
+          <div class="options-group">
+            <label class="opt-label">
+              <input type="radio" name="locucao" value="sim" /><span>Sim</span>
+            </label>
+            <label class="opt-label">
+              <input type="radio" name="locucao" value="nao" /><span>Não será necessário</span>
+            </label>
+            <label class="opt-label">
+              <input type="radio" name="locucao" value="nao_sei" /><span>Não sei ainda</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row" id="locucaoDetalheRow" style="display:none">
+          <label for="fLocucaoDetalhe">Detalhes sobre a locução <span class="optional">(opcional)</span></label>
+          <input type="text" id="fLocucaoDetalhe" placeholder="Ex: Voz feminina, jovem, ou deixe em branco" maxlength="300" />
+        </div>
+
+        <div class="form-row">
+          <label>Você deseja uma thumbnail para o vídeo? <span class="optional">(opcional)</span></label>
+          <div class="options-group">
+            <label class="opt-label">
+              <input type="radio" name="thumbnail" value="sim" /><span>Sim</span>
+            </label>
+            <label class="opt-label">
+              <input type="radio" name="thumbnail" value="nao" /><span>Não será necessário</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row" id="thumbnailDetalheRow" style="display:none">
+          <label for="fThumbnailDetalhe">Detalhes sobre a thumbnail <span class="optional">(opcional)</span></label>
+          <input type="text" id="fThumbnailDetalhe" placeholder="Ex: Foto do palestrante, título do evento" maxlength="300" />
+        </div>
+
+        <div class="form-row">
+          <label for="fMateriais">Tem algum material que deseja acrescentar no vídeo? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "Incluir o logo do evento." ou "Inserir fotos do evento anterior."</span>
+          <textarea id="fMateriais" placeholder="Liste os materiais que deverão aparecer na edição..." maxlength="1000"></textarea>
+        </div>
+      </div>
+
+      <!-- FORMATOS E APLICAÇÃO -->
+      <div class="section-card">
+        <div class="section-heading">
+          <div class="section-heading-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><rect x="1" y="3" width="8" height="10" rx="1"/><rect x="7" y="5" width="8" height="7" rx="1"/></svg>
+          </div>
+          Formatos e aplicação
+        </div>
+
+        <div class="form-row">
+          <label>Em quais formatos será o vídeo? <span class="optional">(até 3 opções)</span></label>
+          <div class="options-group">
+            <label class="opt-label">
+              <input type="checkbox" name="formato" value="9x16" /><span>9×16 (vertical)</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="formato" value="1x1" /><span>1×1 (quadrado)</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="formato" value="16x9" /><span>16×9 (horizontal)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>Qual será a aplicação do vídeo? <span class="optional">(até 2 opções)</span></label>
+          <div class="options-group">
+            <label class="opt-label">
+              <input type="checkbox" name="aplicacao" value="instagram" /><span>Instagram</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="aplicacao" value="youtube" /><span>YouTube</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="aplicacao" value="whatsapp" /><span>WhatsApp</span>
+            </label>
+            <label class="opt-label">
+              <input type="checkbox" name="aplicacao" value="telao" /><span>Telão</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>Identidade visual <span class="required">*</span></label>
+          <span class="label-hint">Você gostaria que utilizássemos qual referência visual?</span>
+          <div class="options-group">
+            <label class="opt-label">
+              <input type="radio" name="identidade" value="evento_anterior" /><span>Identidade do evento anterior</span>
+            </label>
+            <label class="opt-label">
+              <input type="radio" name="identidade" value="institucional" /><span>Padrão institucional da Convenção</span>
+            </label>
+            <label class="opt-label">
+              <input type="radio" name="identidade" value="nova" /><span>Identidade visual nova</span>
+            </label>
+            <label class="opt-label">
+              <input type="radio" name="identidade" value="nao_sei" /><span>Não sei / a combinar</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- MATERIAIS COMPLEMENTARES -->
+      <div class="section-card">
+        <div class="section-heading">
+          <div class="section-heading-icon">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M2 4h12M2 8h8M2 12h6"/></svg>
+          </div>
+          Materiais e observações
+        </div>
+
+        <div class="form-row">
+          <label for="fBancoMateriais">Você possui banco de imagens, vídeos ou materiais complementares? <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "Temos fotos e vídeos do evento anterior." ou "Não possuímos materiais complementares."</span>
+          <textarea id="fBancoMateriais" placeholder="Descreva o que está disponível..." maxlength="1000"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="fObservacoes">Observações ou instruções adicionais <span class="optional">(opcional)</span></label>
+          <span class="label-hint">Ex: "Precisamos que o vídeo esteja pronto antes da abertura das inscrições."</span>
+          <textarea id="fObservacoes" placeholder="Qualquer informação adicional que possa ajudar na execução..." maxlength="2000"></textarea>
+        </div>
+      </div>
+
+    </div><!-- /.main -->
+
+    <!-- LGPD + submit -->
+    <div class="submit-wrap" style="margin-top:20px;">
+
+      <div id="feedbackError" class="feedback feedback-error">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span id="feedbackErrorText">Ocorreu um erro. Tente novamente.</span>
+      </div>
+
+      <div class="lgpd-card">
+        <label class="lgpd-check-wrap" for="fLgpd">
+          <input type="checkbox" id="fLgpd" />
+          <span class="lgpd-text">
+            <strong>Consentimento de uso de dados (LGPD)</strong><br>
+            Autorizo o uso dos meus dados pessoais (nome e e-mail) exclusivamente para processamento desta solicitação de briefing pela equipe de comunicação IAP SP, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018).
+          </span>
+        </label>
+        <p class="lgpd-caption">
+          Seus dados não serão compartilhados com terceiros e serão utilizados somente para fins internos de gestão de demandas. Você pode solicitar a exclusão a qualquer momento.
+        </p>
+      </div>
+
+      <button type="button" class="btn-submit" id="submitBtn">
+        Enviar briefing de vídeo →
+      </button>
+    </div>
+
+    <div class="page-footer">
+      Equipe de Comunicação — IAP Regional SP &nbsp;·&nbsp;
+      <a href="/briefing.html">Outros tipos de briefing</a>
+    </div>
+  </div><!-- /#formWrap -->
+
+  <script>
+    const submitBtn   = document.getElementById('submitBtn')
+    const errBox      = document.getElementById('feedbackError')
+    const errText     = document.getElementById('feedbackErrorText')
+    const successDiv  = document.getElementById('successScreen')
+    const formWrap    = document.getElementById('formWrap')
+    const newBtn      = document.getElementById('newBriefingBtn')
+
+    // Conditional fields
+    document.querySelectorAll('input[name="locucao"]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('locucaoDetalheRow').style.display =
+          r.value === 'sim' && r.checked ? 'block' : document.getElementById('locucaoDetalheRow').style.display
+      })
+    })
+    document.querySelectorAll('input[name="locucao"]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('locucaoDetalheRow').style.display =
+          document.querySelector('input[name="locucao"]:checked')?.value === 'sim' ? 'block' : 'none'
+      })
+    })
+    document.querySelectorAll('input[name="thumbnail"]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('thumbnailDetalheRow').style.display =
+          document.querySelector('input[name="thumbnail"]:checked')?.value === 'sim' ? 'block' : 'none'
+      })
+    })
+
+    function showError(msg) {
+      errText.textContent = msg
+      errBox.classList.add('show')
+      errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+    function hideError() { errBox.classList.remove('show') }
+
+    function getChecked(name) {
+      return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(el => el.value)
+    }
+    function getRadio(name) {
+      return document.querySelector(`input[name="${name}"]:checked`)?.value ?? ''
+    }
+
+    submitBtn.addEventListener('click', async () => {
+      hideError()
+
+      const nome       = document.getElementById('fNome').value.trim()
+      const email      = document.getElementById('fEmail').value.trim()
+      const nomeEvento = document.getElementById('fNomeEvento').value.trim()
+      const dataEvento = document.getElementById('fDataEvento').value || undefined
+      const ideia      = document.getElementById('fIdeia').value.trim()
+      const objetivo   = document.getElementById('fObjetivo').value.trim()
+      const consent    = document.getElementById('fLgpd').checked
+
+      // Validations
+      if (!nome || nome.length < 2) { showError('Informe seu nome completo.'); document.getElementById('fNome').focus(); return }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError('Informe um e-mail válido.'); document.getElementById('fEmail').focus(); return }
+      if (!nomeEvento) { showError('Informe o nome do evento ou campanha.'); document.getElementById('fNomeEvento').focus(); return }
+      if (!ideia || ideia.length < 10) { showError('Descreva a ideia do vídeo (mínimo 10 caracteres).'); document.getElementById('fIdeia').focus(); return }
+      if (!objetivo) { showError('Descreva o objetivo da edição.'); document.getElementById('fObjetivo').focus(); return }
+      if (!getRadio('identidade')) { showError('Selecione a opção de identidade visual desejada.'); return }
+      if (!consent) { showError('É necessário aceitar a política de dados para enviar o briefing.'); document.getElementById('fLgpd').focus(); return }
+
+      const campos_extras = {
+        nome_evento:        nomeEvento,
+        ideia:              ideia,
+        objetivo:           objetivo,
+        referencias:        document.getElementById('fReferencias').value.trim(),
+        roteiro:            document.getElementById('fRoteiro').value.trim(),
+        locucao:            getRadio('locucao'),
+        locucao_detalhe:    document.getElementById('fLocucaoDetalhe').value.trim(),
+        thumbnail:          getRadio('thumbnail'),
+        thumbnail_detalhe:  document.getElementById('fThumbnailDetalhe').value.trim(),
+        materiais:          document.getElementById('fMateriais').value.trim(),
+        formatos:           getChecked('formato'),
+        aplicacao:          getChecked('aplicacao'),
+        identidade_visual:  getRadio('identidade'),
+        banco_materiais:    document.getElementById('fBancoMateriais').value.trim(),
+        observacoes:        document.getElementById('fObservacoes').value.trim(),
+      }
+
+      // Remove empty strings to keep payload clean
+      Object.keys(campos_extras).forEach(k => {
+        if (campos_extras[k] === '' || (Array.isArray(campos_extras[k]) && campos_extras[k].length === 0)) delete campos_extras[k]
+      })
+
+      const payload = {
+        nome,
+        email,
+        tipo:               'Briefing para Edição de Vídeo',
+        tipo_briefing:      'video',
+        nome_evento:        nomeEvento,
+        descricao:          `${ideia}\n\nObjetivo: ${objetivo}`.slice(0, 3000),
+        data_evento:        dataEvento,
+        consentimento_lgpd: true,
+        campos_extras,
+      }
+
+      submitBtn.disabled    = true
+      submitBtn.textContent = 'Enviando...'
+
+      try {
+        const res  = await fetch('/briefing', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload),
+        })
+        const json = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          const msg = json?.error?.formErrors?.[0]
+            || (Array.isArray(json?.error) ? json.error[0] : null)
+            || (typeof json?.error === 'string' ? json.error : null)
+            || 'Erro ao enviar o briefing. Tente novamente.'
+          showError(msg)
+          return
+        }
+
+        formWrap.hidden = true
+        successDiv.classList.add('show')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+
+      } catch {
+        showError('Falha de conexão. Verifique sua internet e tente novamente.')
+      } finally {
+        submitBtn.disabled    = false
+        submitBtn.textContent = 'Enviar briefing de vídeo →'
+      }
+    })
+
+    newBtn.addEventListener('click', () => {
+      document.querySelectorAll('input, textarea, select').forEach(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = false
+        else el.value = ''
+      })
+      document.getElementById('locucaoDetalheRow').style.display   = 'none'
+      document.getElementById('thumbnailDetalheRow').style.display = 'none'
+      formWrap.hidden = false
+      successDiv.classList.remove('show')
+      hideError()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  </script>
+</body>
+</html>

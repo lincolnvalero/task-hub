@@ -2047,6 +2047,38 @@ $('#attachBtn')?.addEventListener('click', async () => {
 })
 
 /* ── Briefings ─────────────────────────────────────────────────── */
+
+// Rótulos legíveis para os campos extras de cada tipo de briefing
+const BF_VIDEO_LABELS = {
+  nome_evento:'Evento / Projeto', ideia:'Ideia / conceito', objetivo:'Objetivo',
+  referencias:'Referências', roteiro:'Roteiro / texto', locucao:'Locução',
+  locucao_detalhe:'Detalhe da locução', thumbnail:'Thumbnail',
+  thumbnail_detalhe:'Detalhe do thumbnail', materiais:'Materiais extras',
+  formatos:'Formatos', aplicacao:'Aplicação', identidade_visual:'Identidade visual',
+  banco_materiais:'Banco de materiais', observacoes:'Observações',
+}
+const BF_SOCIAL_LABELS = {
+  nome_evento:'Evento / Projeto', post1:'Post 1', post2:'Post 2', post3:'Post 3', post4:'Post 4',
+  referencias:'Referências', redes_sociais:'Redes sociais', publico_alvo:'Público-alvo',
+  hashtags:'Hashtags', chamada:'Chamada / CTA', formatos:'Formatos',
+  template:'Template existente', info_adicional:'Info adicional', observacoes:'Observações',
+}
+
+function renderCamposExtras(campos, tipoBriefing) {
+  if (!campos || typeof campos !== 'object') return ''
+  const labels = tipoBriefing === 'video' ? BF_VIDEO_LABELS : BF_SOCIAL_LABELS
+  const rows = Object.entries(campos).filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => {
+    const label = labels[k] || k.replace(/_/g, ' ')
+    const display = Array.isArray(v) ? v.join(', ') : String(v)
+    return `<span class="bfx-label">${escapeHtml(label)}</span><span class="bfx-value">${escapeHtml(display)}</span>`
+  }).join('')
+  if (!rows) return ''
+  return `<details class="briefing-extras">
+    <summary>Ver campos detalhados (${Object.keys(campos).length} campos)</summary>
+    <div class="briefing-extras-grid">${rows}</div>
+  </details>`
+}
+
 async function loadBriefings() {
   const list = $('#briefingsList')
   if (!list) return
@@ -2103,18 +2135,29 @@ function renderBriefings(briefings) {
   list.innerHTML = briefings.map(b => {
     const dt = b.created_at ? new Date(b.created_at).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'
     const isPendente = b.status === 'PENDENTE'
+    const typeBadge = b.tipo_briefing === 'video'
+      ? `<span class="bf-type-badge video">▶ Vídeo</span>`
+      : b.tipo_briefing === 'redes_sociais'
+        ? `<span class="bf-type-badge social">⊞ Redes Sociais</span>`
+        : ''
+    const eventoLabel = b.nome_evento ? `<span>📁 ${escapeHtml(b.nome_evento)}</span>` : ''
     return `<div class="briefing-item">
-      <div class="briefing-item-title">${escapeHtml(b.nome)} · <span style="color:var(--text-muted);font-size:.8rem">${escapeHtml(b.email)}</span></div>
-      <div class="briefing-item-meta">
-        <span class="briefing-status-badge ${b.status}">${BF_STATUS_LABELS[b.status] || b.status}</span>
-        <span>${escapeHtml(b.tipo)}</span>
-        ${b.canal ? `<span>${escapeHtml(b.canal)}</span>` : ''}
-        ${b.tipo_transmissao ? `<span class="agenda-tx-badge agenda-tx-${b.tipo_transmissao}">${TRANSMISSAO_LABELS[b.tipo_transmissao]||b.tipo_transmissao}</span>` : ''}
-        ${b.data_evento ? `<span>📅 ${new Date(b.data_evento).toLocaleDateString('pt-BR')}</span>` : ''}
-        <span style="color:var(--text-dim)">${dt}</span>
+      <div>
+        <div class="briefing-item-title">${escapeHtml(b.nome)} · <span style="color:var(--text-muted);font-size:.8rem">${escapeHtml(b.email)}</span></div>
+        <div class="briefing-item-meta">
+          <span class="briefing-status-badge ${b.status}">${BF_STATUS_LABELS[b.status] || b.status}</span>
+          ${typeBadge}
+          ${eventoLabel}
+          <span>${escapeHtml(b.tipo)}</span>
+          ${b.canal ? `<span>${escapeHtml(b.canal)}</span>` : ''}
+          ${b.tipo_transmissao ? `<span class="agenda-tx-badge agenda-tx-${b.tipo_transmissao}">${TRANSMISSAO_LABELS[b.tipo_transmissao]||b.tipo_transmissao}</span>` : ''}
+          ${b.data_evento ? `<span>📅 ${new Date(b.data_evento).toLocaleDateString('pt-BR')}</span>` : ''}
+          <span style="color:var(--text-dim)">${dt}</span>
+        </div>
+        <div class="briefing-item-desc">${escapeHtml(b.descricao.slice(0,200))}${b.descricao.length>200?'…':''}</div>
+        ${renderCamposExtras(b.campos_extras, b.tipo_briefing)}
+        ${b.task_id ? `<div class="briefing-item-meta" style="margin-top:4px"><span style="color:var(--accent);font-size:.8rem;cursor:pointer" data-open-task="${b.task_id}">↗ Ver tarefa criada</span></div>` : ''}
       </div>
-      <div class="briefing-item-desc">${escapeHtml(b.descricao.slice(0,200))}${b.descricao.length>200?'…':''}</div>
-      ${b.task_id ? `<div class="briefing-item-meta" style="margin-top:4px"><span style="color:var(--accent);font-size:.8rem;cursor:pointer" data-open-task="${b.task_id}">↗ Ver tarefa criada</span></div>` : ''}
       ${isPendente ? `<div class="briefing-actions">
         <button class="btn-primary btn-sm" data-bf-approve="${b.id}">✓ Converter em tarefa</button>
         <button class="btn-ghost btn-sm" data-bf-reject="${b.id}">✕ Rejeitar</button>

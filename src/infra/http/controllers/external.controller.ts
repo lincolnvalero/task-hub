@@ -41,6 +41,10 @@ const briefingSchema = z.object({
   descricao:          z.string().min(10).max(3000),
   data_evento:        z.coerce.date().optional(),
   tipo_transmissao:   z.enum(['GRAVACAO', 'AO_VIVO', 'AMBOS']).optional(),
+  // Campos dos briefings estruturados (vídeo / redes sociais)
+  tipo_briefing:      z.string().max(50).optional(),   // 'video' | 'redes_sociais'
+  nome_evento:        z.string().max(200).optional(),
+  campos_extras:      z.record(z.string(), z.unknown()).optional(), // JSONB — estrutura variável por tipo
   consentimento_lgpd: z.literal(true, {
     error: 'É necessário aceitar a política de dados para enviar o briefing.',
   }),
@@ -168,14 +172,17 @@ export async function externalRoutes(app: FastifyInstance) {
     const { data: row, error } = await supabase
       .from('briefing_requests')
       .insert({
-        id:          randomUUID(),
-        nome:        body.data.nome,
-        email:       body.data.email,
-        tipo:        body.data.tipo,
+        id:                randomUUID(),
+        nome:              body.data.nome,
+        email:             body.data.email,
+        tipo:              body.data.tipo,
         canal:             body.data.canal ?? null,
         descricao:         body.data.descricao,
         data_evento:       body.data.data_evento?.toISOString().slice(0, 10) ?? null,
         tipo_transmissao:  body.data.tipo_transmissao ?? null,
+        tipo_briefing:     body.data.tipo_briefing ?? null,
+        nome_evento:       body.data.nome_evento ?? null,
+        campos_extras:     body.data.campos_extras ?? null,
         status:            'PENDENTE',
       })
       .select('id')

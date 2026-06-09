@@ -299,3 +299,11 @@ CREATE INDEX IF NOT EXISTS idx_notes_tags ON notes USING GIN(tags);
 -- WhatsApp integration: add phone number field to users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_whatsapp ON users(whatsapp_number) WHERE whatsapp_number IS NOT NULL;
+
+-- ─── BRIEFINGS ESTRUTURADOS (Edição de Vídeo / Posts de Redes Sociais) ───────
+-- Novos campos para os formulários de briefing específicos por tipo.
+-- campos_extras: JSONB sem dados pessoais sensíveis além dos já coletados
+--   (nome + email) — consentimento LGPD explícito obtido no formulário.
+ALTER TABLE briefing_requests ADD COLUMN IF NOT EXISTS tipo_briefing TEXT;
+ALTER TABLE briefing_requests ADD COLUMN IF NOT EXISTS nome_evento   TEXT;
+ALTER TABLE briefing_requests ADD COLUMN IF NOT EXISTS campos_extras JSONB;
