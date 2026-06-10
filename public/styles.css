@@ -3114,8 +3114,10 @@ dialog select[multiple] { min-height: 100px; }
 .note-dialog {
   position:fixed; inset:0; width:100%; max-width:100%; max-height:100%;
   margin:0; padding:0; border:none; background:transparent; overflow:visible;
-  display:flex; align-items:flex-start; justify-content:center; padding-top:60px;
+  align-items:flex-start; justify-content:center; padding-top:60px;
 }
+/* Só mostra quando o <dialog> está aberto (showModal()) */
+.note-dialog[open] { display:flex; }
 .note-dialog::backdrop { background:rgba(0,0,0,.18); }
 .note-form {
   width:min(580px, calc(100vw - 32px));
