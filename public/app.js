@@ -2831,6 +2831,9 @@ async function loadAgenda() {
       const ev = await api('/events')
       calState.events = Array.isArray(ev) ? ev : []
     }
+    if (!(state.campaigns || []).length) {
+      try { const c = await api('/campaigns'); state.campaigns = Array.isArray(c) ? c : [] } catch {}
+    }
   } catch (err) { toast(err.message, 'error') }
   renderAgendaList()
 }
@@ -2839,28 +2842,38 @@ function renderAgendaList() {
   const list = $('#agendaList')
   if (!list) return
 
-  let events = (calState.events || []).filter(e => !e.deleted_at)
-
-  // Filter by source
+  // Eventos do calendário
+  let eventItems = (calState.events || []).filter(e => !e.deleted_at).map(e => ({ ...e, _type: 'evento' }))
   if (_agendaSourceFilter !== 'ALL') {
-    events = events.filter(e => (e.calendar_source || 'COMUNICACAO') === _agendaSourceFilter)
+    eventItems = eventItems.filter(e => (e.calendar_source || 'COMUNICACAO') === _agendaSourceFilter)
   }
 
-  // Filter by date range
-  if (_agendaFromDate) events = events.filter(e => e.data >= _agendaFromDate)
-  if (_agendaToDate) events = events.filter(e => e.data <= _agendaToDate)
+  // Campanhas (incluídas quando o filtro "campanhas" está ativo)
+  const campaignItems = calState.filters.campanhas
+    ? (state.campaigns || []).filter(c => c.data_evento && !c.deleted_at).map(c => ({
+        _type: 'campanha', id: c.id, titulo: c.nome,
+        data: isoToYmd(c.data_evento), hora: null, local: c.local,
+        cor: c.cor || CAL_COLORS.campanha, cover_url: null, tipo_transmissao: null,
+      }))
+    : []
 
-  // Sort by date
-  events.sort((a, b) => new Date(a.data) - new Date(b.data))
+  let allItems = [...eventItems, ...campaignItems]
 
-  if (!events.length) {
+  // Filtro por intervalo de datas
+  if (_agendaFromDate) allItems = allItems.filter(e => e.data >= _agendaFromDate)
+  if (_agendaToDate)   allItems = allItems.filter(e => e.data <= _agendaToDate)
+
+  // Ordenação cronológica
+  allItems.sort((a, b) => new Date(a.data) - new Date(b.data))
+
+  if (!allItems.length) {
     list.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center">Nenhum evento encontrado.</div>'
     return
   }
 
-  // Group by month
+  // Agrupar por mês
   const grouped = {}
-  events.forEach(e => {
+  allItems.forEach(e => {
     const date = new Date(e.data + 'T00:00:00')
     const month = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     if (!grouped[month]) grouped[month] = []
@@ -2870,14 +2883,29 @@ function renderAgendaList() {
   const sourceColors = { COMUNICACAO: '#E8743B', CONVENCAO: '#6366f1', GERAL: '#16a34a' }
   const sourceLabels = { COMUNICACAO: '📣 Comunicação', CONVENCAO: '🏛️ Convenção Regional', GERAL: '🌍 Geral' }
 
-  list.innerHTML = Object.entries(grouped).map(([month, monthEvents]) => `
+  list.innerHTML = Object.entries(grouped).map(([month, monthItems]) => `
     <div class="agenda-month-group">
       <div class="agenda-month-header">${month}</div>
-      ${monthEvents.map(e => {
+      ${monthItems.map(e => {
+        if (e._type === 'campanha') {
+          const color = e.cor || CAL_COLORS.campanha
+          return `<div class="agenda-event-card" data-campaign-id="${e.id}" style="cursor:pointer">
+            <div class="agenda-event-card-color" style="background:${color}"></div>
+            <div class="agenda-event-card-body">
+              <div class="agenda-event-card-title" title="${escapeHtml(e.titulo)}">${escapeHtml(e.titulo)}</div>
+              <div class="agenda-event-card-meta">
+                <span>📅 ${new Date(e.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
+                ${e.local ? `<span>📍 ${escapeHtml(e.local.slice(0, 30))}</span>` : ''}
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px">
+                <span class="agenda-event-card-source-badge" style="background:${color}1a;color:${color};border-color:${color}33">🎯 Campanha</span>
+              </div>
+            </div>
+          </div>`
+        }
         const source = e.calendar_source || 'COMUNICACAO'
         const color = e.cor || sourceColors[source]
         const sourceLabel = sourceLabels[source]
-
         const txBadge = e.tipo_transmissao ? `<span class="agenda-tx-badge agenda-tx-${e.tipo_transmissao}">${TRANSMISSAO_LABELS[e.tipo_transmissao]||e.tipo_transmissao}</span>` : ''
         return `<div class="agenda-event-card" data-event-id="${e.id}">
           ${e.cover_url
@@ -2902,7 +2930,7 @@ function renderAgendaList() {
     </div>
   `).join('')
 
-  // Event handlers
+  // Handlers — eventos do calendário
   $$('[data-open-event]', list).forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.openEvent
@@ -2915,6 +2943,13 @@ function renderAgendaList() {
       const id = btn.dataset.editEvent
       const ev = (calState.events || []).find(e => e.id === id)
       if (ev) openEventDialog(ev)
+    })
+  })
+  // Handlers — campanhas
+  $$('[data-campaign-id]', list).forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('button')) return
+      openCampaignPanel(card.dataset.campaignId)
     })
   })
 }
